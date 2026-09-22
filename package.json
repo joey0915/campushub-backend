@@ -1,0 +1,46 @@
+{
+  "name": "campushub-backend",
+  "version": "1.0.0",
+  "description": "CampusHub — multi-tenant campus resource management system (backend REST API)",
+  "main": "dist/server.js",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec \"ts-node src/server.ts\"",
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "verify": "npm run typecheck && npm run lint && npm run format:check"
+  },
+  "keywords": [
+    "campushub",
+    "express",
+    "typescript",
+    "mongoose",
+    "multi-tenant"
+  ],
+  "author": "Zaixun Li",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^18.0.2",
+    "express": "^5.2.1",
+    "mongoose": "^9.10.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.2",
+    "eslint": "^9.39.5",
+    "nodemon": "^3.1.14",
+    "prettier": "^3.9.8",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}
