@@ -1,0 +1,2 @@
+# Mongoose schemas and their interfaces go here (AGENTS.md §3).
+# Naming: <entity>.model.ts — e.g. booking.model.ts, tenant.model.ts
