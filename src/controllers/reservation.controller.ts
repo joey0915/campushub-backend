@@ -77,7 +77,7 @@ function parseListUserReservationsParams(params: Request['params']): ListUserRes
 /**
  * HTTP boundary for the reservation operations in docs/openapi.yaml: every
  * input is narrowed to its contract type here (400 on failure), then exactly
- * one service call; the service's 404/409 errors reach the central middleware
+ * one service call; the service's 400/409 errors reach the central middleware
  * through asyncHandler. Nothing authenticates the caller yet, so the tenant is
  * the deployment's configured one, never a client-sent value (AGENTS.md §4).
  */

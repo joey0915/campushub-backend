@@ -6,7 +6,7 @@ import type {
   Reservation,
   ReservationStatus,
 } from '../types/reservation';
-import { ConflictError, NotFoundError } from '../utils/app-error';
+import { ConflictError, ValidationError } from '../utils/app-error';
 
 /**
  * Statuses that hold a time slot: what "active" means for a student's
@@ -27,23 +27,21 @@ function toReservation(entity: ReservationEntity): Reservation {
 }
 
 /**
- * Reservation business rules: a reservation needs an existing, available
- * resource and a slot that no active reservation overlaps. Failures are thrown
- * as typed AppErrors; no Express or HTTP knowledge here (AGENTS.md §3, §4).
+ * Reservation business rules: a reservation must name an existing resource
+ * and a slot that no active reservation overlaps. Failures are thrown as typed
+ * AppErrors; no Express or HTTP knowledge here (AGENTS.md §3, §4).
  */
 export const reservationService = {
   async createReservation(
     tenantId: string,
     request: CreateReservationRequest,
   ): Promise<Reservation> {
+    // The lab defines only 201/400/409/500 for this operation, so a reference to
+    // a resource that does not exist is an invalid field (400), not a 404.
     const resource = await resourceRepository.findById(tenantId, request.resourceId);
     if (resource === undefined) {
-      throw new NotFoundError(`Resource ${request.resourceId} not found.`);
-    }
-    if (!resource.isAvailable) {
-      throw new ConflictError(
-        `Resource ${request.resourceId} is not available for reservations.`,
-        'RESOURCE_UNAVAILABLE',
+      throw new ValidationError(
+        `resourceId ${request.resourceId} does not refer to an existing resource.`,
       );
     }
 

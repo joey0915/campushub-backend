@@ -81,7 +81,6 @@ export interface ListResourcesResponses {
 export interface CreateReservationResponses {
   readonly 201: Reservation;
   readonly 400: ErrorResponse;
-  readonly 404: ErrorResponse;
   readonly 409: ErrorResponse;
   readonly 500: ErrorResponse;
 }
