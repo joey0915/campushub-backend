@@ -1,0 +1,11 @@
+# This file instructs Redocly's linter to ignore the rules contained for specific parts of your API.
+# See https://redocly.com/docs/cli/ for more information.
+#
+# Each entry is a deliberate exception, not a silenced defect:
+# - servers/0/url: Lab 2 mandates the local development server http://localhost:3000/api/v1.
+# - User: drafted as a core model (Lab 2 goal 2) before any operation returns it.
+docs/openapi.yaml:
+  no-server-example.com:
+    - '#/servers/0/url'
+  no-unused-components:
+    - '#/components/schemas/User'

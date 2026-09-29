@@ -34,6 +34,7 @@ bug, not a feature.
 | Config         | `dotenv`                                                |
 | Dev execution  | `ts-node`, `nodemon`                                    |
 | Lint / format  | `eslint`, `@eslint/js`, `typescript-eslint`, `prettier` |
+| Contract lint  | `@redocly/cli` via `npx` only, never installed          |
 
 > **TypeScript version pin:** stay on `typescript@^5.9`. `typescript-eslint@8`
 > declares a peer range of `>=4.8.4 <6.1.0`, so TypeScript 7 breaks the
@@ -116,6 +117,17 @@ src/
   compiled model. Indexes and schema-level validators are allowed here.
 - **Forbidden:** business rules, HTTP concerns, service imports.
 
+### API contract — `docs/openapi.yaml`
+
+- `docs/openapi.yaml` (OpenAPI 3.0) is the **authoritative contract** for the
+  HTTP API. Paths, verbs, parameters, request and response bodies, status
+  codes, and error codes in `src/` must match it exactly. Never add, rename, or
+  remove an endpoint or field in code alone.
+- **Contract first:** change the spec, then the code that implements it, in the
+  same pull request.
+- Deliberate lint exceptions live in `.redocly.lint-ignore.yaml`, each with its
+  reason. Never disable a Redocly rule globally to get a clean run.
+
 ### Naming conventions
 
 - Files: `<entity>.<layer>.ts` → `booking.routes.ts`, `booking.controller.ts`,
@@ -197,6 +209,7 @@ src/
   - `npm run typecheck` — must pass with zero errors.
   - `npm run lint` — must pass with zero errors.
   - `npm run build` — must succeed.
+  - `npx @redocly/cli lint docs/openapi.yaml` — must pass with zero errors.
 - If you changed a route, also verify it with `curl` against a running
   `npm run dev` and paste the actual response.
 - **Never report success you have not observed.** If a command fails, show the
