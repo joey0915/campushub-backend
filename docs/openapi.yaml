@@ -1,0 +1,425 @@
+openapi: 3.0.3
+info:
+  title: CampusHub Reservation API
+  version: 1.0.0
+  description: |
+    API specification for managing campus resources and time-slotted reservations.
+
+    - **Tenancy.** Every request is scoped to the caller's campus tenant. The server
+      resolves the tenant itself and never reads it from the request; until
+      authentication exists, it is the deployment's configured tenant.
+    - **Time.** Timestamps are ISO 8601 (RFC 3339) date-times with an explicit
+      offset, `Z` or `±HH:MM`. Responses normalize them to UTC.
+    - **Errors.** Every 4xx and 5xx response has an `ErrorResponse` body whose
+      `code` is stable and machine-readable.
+  license:
+    name: ISC
+    url: https://opensource.org/licenses/ISC
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Local Development Server
+# No authentication exists yet. Declared explicitly so the omission is deliberate, not an oversight.
+security: []
+tags:
+  - name: Resources
+    description: Bookable campus resources such as rooms, equipment, and labs.
+  - name: Reservations
+    description: Time-slotted reservations of campus resources.
+paths:
+  /resources:
+    get:
+      tags:
+        - Resources
+      operationId: listResources
+      summary: List campus resources
+      description: >-
+        Returns the campus's resources in catalogue order, optionally filtered by `type`.
+        The filter matches `Resource.type` exactly and is case-sensitive; a value that
+        matches no resource, such as `STUDY_ROOM`, yields an empty array rather than an
+        error.
+      parameters:
+        - name: type
+          in: query
+          required: false
+          description: Only return resources whose `type` equals this value.
+          schema:
+            type: string
+            minLength: 1
+          example: ROOM
+      responses:
+        '200':
+          description: The matching resources, possibly none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+              example:
+                - id: res-101
+                  name: Study Room 302
+                  type: ROOM
+                  location: Main Library, Floor 3
+                  isAvailable: true
+                - id: res-201
+                  name: 3D Printer A
+                  type: EQUIPMENT
+                  location: Innovation Makerspace
+                  isAvailable: true
+        '400':
+          description: '`type` was provided but is empty.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: VALIDATION_ERROR
+                message: type must be a non-empty string when provided.
+                path: /api/v1/resources?type=
+                timestamp: '2026-10-01T09:00:00.000Z'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /reservations:
+    post:
+      tags:
+        - Reservations
+      operationId: createReservation
+      summary: Create a reservation
+      description: |
+        Reserves a resource for the half-open interval [startTime, endTime). The request
+        body is the `Reservation` schema without its read-only `id` and `status`: the
+        server assigns `id`, and every new reservation starts `PENDING`. Read-only and
+        unknown properties are rejected.
+
+        The slot is refused with 409 when the resource is unavailable, or when an active
+        (`PENDING` or `CONFIRMED`) reservation of the same resource overlaps it.
+        Back-to-back slots, where one ends exactly when the next starts, do not overlap,
+        and `CANCELLED` reservations never block a slot.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Reservation'
+            example:
+              resourceId: res-101
+              userId: user-456
+              startTime: '2026-10-01T10:00:00Z'
+              endTime: '2026-10-01T11:00:00Z'
+      responses:
+        '201':
+          description: The reservation was created and now holds the slot.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+              example:
+                id: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
+                resourceId: res-101
+                userId: user-456
+                startTime: '2026-10-01T10:00:00.000Z'
+                endTime: '2026-10-01T11:00:00.000Z'
+                status: PENDING
+        '400':
+          description: >-
+            The body is not a JSON object, a required field is missing, a read-only or
+            unknown property was sent, an identifier or date-time is malformed, or
+            `endTime` is not later than `startTime`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingField:
+                  summary: A required field is missing
+                  value:
+                    status: error
+                    code: VALIDATION_ERROR
+                    message: startTime is required.
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
+                invalidDateTime:
+                  summary: A date-time is not ISO 8601 with an offset
+                  value:
+                    status: error
+                    code: VALIDATION_ERROR
+                    message: 'startTime must be an ISO 8601 date-time with a UTC offset, e.g. 2026-10-01T10:00:00Z.'
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
+                invalidTimeRange:
+                  summary: The slot does not end after it starts
+                  value:
+                    status: error
+                    code: VALIDATION_ERROR
+                    message: endTime must be later than startTime.
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
+        '404':
+          description: No resource with this `resourceId` exists on the caller's campus.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: NOT_FOUND
+                message: Resource res-999 not found.
+                path: /api/v1/reservations
+                timestamp: '2026-10-01T09:00:00.000Z'
+        '409':
+          description: >-
+            The slot cannot be reserved: `DOUBLE_BOOKING` when an active reservation of the
+            resource overlaps it, `RESOURCE_UNAVAILABLE` when the resource is not available
+            for booking.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                doubleBooking:
+                  summary: The resource is already reserved for an overlapping slot
+                  value:
+                    status: error
+                    code: DOUBLE_BOOKING
+                    message: Resource is already reserved for this time slot.
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
+                resourceUnavailable:
+                  summary: The resource is not available for booking
+                  value:
+                    status: error
+                    code: RESOURCE_UNAVAILABLE
+                    message: Resource res-202 is not available for reservations.
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /reservations/user/{userId}:
+    get:
+      tags:
+        - Reservations
+      operationId: listUserReservations
+      summary: List a student's active reservations
+      description: >-
+        Returns the student's active (`PENDING` or `CONFIRMED`) reservations on the
+        caller's campus, ordered by `startTime`. `CANCELLED` reservations are omitted,
+        and a student without active reservations yields an empty array.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Identifier of the student.
+          schema:
+            type: string
+            pattern: '^[A-Za-z0-9_-]{1,64}$'
+          example: user-456
+      responses:
+        '200':
+          description: The student's active reservations, possibly none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reservation'
+              example:
+                - id: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
+                  resourceId: res-101
+                  userId: user-456
+                  startTime: '2026-10-01T10:00:00.000Z'
+                  endTime: '2026-10-01T11:00:00.000Z'
+                  status: PENDING
+        '400':
+          description: '`userId` is not a valid identifier.'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: error
+                code: VALIDATION_ERROR
+                message: userId must be 1-64 letters, digits, hyphens or underscores.
+                path: /api/v1/reservations/user/user%20456
+                timestamp: '2026-10-01T09:00:00.000Z'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+components:
+  schemas:
+    ResourceType:
+      type: string
+      description: Category of a bookable resource.
+      enum:
+        - ROOM
+        - EQUIPMENT
+        - LAB
+    ReservationStatus:
+      type: string
+      description: >-
+        Lifecycle state of a reservation. New reservations start `PENDING`. `PENDING` and
+        `CONFIRMED` reservations are active and hold their slot; `CANCELLED` ones release
+        it.
+      enum:
+        - PENDING
+        - CONFIRMED
+        - CANCELLED
+    Resource:
+      type: object
+      description: A bookable campus resource, such as "Study Room 302" or "3D Printer A".
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - type
+        - location
+        - isAvailable
+      properties:
+        id:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          readOnly: true
+          description: Unique identifier of the resource.
+          example: res-101
+        name:
+          type: string
+          minLength: 1
+          description: Human-readable name.
+          example: Study Room 302
+        type:
+          $ref: '#/components/schemas/ResourceType'
+        location:
+          type: string
+          minLength: 1
+          description: Where the resource can be found.
+          example: Main Library, Floor 3
+        isAvailable:
+          type: boolean
+          description: >-
+            Availability status. An unavailable resource, for example one under
+            maintenance, cannot be reserved.
+          example: true
+    Reservation:
+      type: object
+      description: >-
+        A booking of one resource by one student for the half-open interval [startTime,
+        endTime). Also the request body of `POST /reservations`, where the read-only `id`
+        and `status` are omitted.
+      additionalProperties: false
+      required:
+        - id
+        - resourceId
+        - userId
+        - startTime
+        - endTime
+        - status
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Unique identifier, assigned by the server.
+          example: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
+        resourceId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          description: '`id` of the reserved `Resource`.'
+          example: res-101
+        userId:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          description: '`id` of the `User` (student) who holds the reservation.'
+          example: user-456
+        startTime:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$'
+          description: Start of the slot, inclusive. ISO 8601 date-time with an explicit offset.
+          example: '2026-10-01T10:00:00Z'
+        endTime:
+          type: string
+          format: date-time
+          pattern: '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})$'
+          description: >-
+            End of the slot, exclusive; must be later than `startTime`. ISO 8601 date-time
+            with an explicit offset.
+          example: '2026-10-01T11:00:00Z'
+        status:
+          allOf:
+            - $ref: '#/components/schemas/ReservationStatus'
+          readOnly: true
+          description: Assigned by the server; new reservations start `PENDING`.
+    User:
+      type: object
+      description: >-
+        A student or staff member who can hold reservations, referenced by
+        `Reservation.userId`. No operation returns users yet.
+      additionalProperties: false
+      required:
+        - id
+        - name
+        - email
+      properties:
+        id:
+          type: string
+          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          readOnly: true
+          description: Unique identifier of the user.
+          example: user-456
+        name:
+          type: string
+          minLength: 1
+          description: Full name.
+          example: Jordan Lee
+        email:
+          type: string
+          format: email
+          description: Campus email address, unique within the campus.
+          example: jordan.lee@example.edu
+    ErrorResponse:
+      type: object
+      description: Body of every 4xx and 5xx response.
+      additionalProperties: false
+      required:
+        - status
+        - code
+        - message
+        - path
+        - timestamp
+      properties:
+        status:
+          type: string
+          enum:
+            - error
+        code:
+          type: string
+          description: >-
+            Stable, machine-readable error code: `VALIDATION_ERROR` (400), `NOT_FOUND`
+            (404), `DOUBLE_BOOKING` or `RESOURCE_UNAVAILABLE` (409), or
+            `INTERNAL_SERVER_ERROR` (500).
+          example: DOUBLE_BOOKING
+        message:
+          type: string
+          description: Human-readable explanation of the error.
+          example: Resource is already reserved for this time slot.
+        path:
+          type: string
+          description: Request path, including any query string, that produced the error.
+          example: /api/v1/reservations
+        timestamp:
+          type: string
+          format: date-time
+          description: When the error occurred, in UTC.
+          example: '2026-10-01T09:00:00.000Z'
+  responses:
+    InternalServerError:
+      description: Unexpected server error. Details are logged server-side and never returned.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            code: INTERNAL_SERVER_ERROR
+            message: An unexpected error occurred.
+            path: /api/v1/reservations
+            timestamp: '2026-10-01T09:00:00.000Z'
