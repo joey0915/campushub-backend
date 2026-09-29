@@ -77,11 +77,11 @@ The API is contract-first: [docs/openapi.yaml](docs/openapi.yaml) (OpenAPI
 [src/routes/reservation.routes.ts](src/routes/reservation.routes.ts) wires its
 operations under `/api/v1`.
 
-| Operation                                | Success | Errors        |
-| ---------------------------------------- | ------- | ------------- |
-| `GET /resources` (optional `?type=ROOM`) | 200     | 400           |
-| `POST /reservations`                     | 201     | 400, 404, 409 |
-| `GET /reservations/user/{userId}`        | 200     | 400           |
+| Operation                                | Success | Errors   |
+| ---------------------------------------- | ------- | -------- |
+| `GET /resources` (optional `?type=ROOM`) | 200     | 400      |
+| `POST /reservations`                     | 201     | 400, 409 |
+| `GET /reservations/user/{userId}`        | 200     | 400      |
 
 Lint the contract (Redocly runs through `npx`; it is not a project
 dependency):
@@ -100,12 +100,12 @@ Behavior the contract pins down:
   `±HH:MM`), returned in UTC. `endTime` must be later than `startTime`.
 - **Conflicts** use half-open intervals: a slot that overlaps an active
   (`PENDING` or `CONFIRMED`) reservation of the same resource is a `409`
-  `DOUBLE_BOOKING`, while back-to-back slots are fine. An unavailable resource
-  is a `409` `RESOURCE_UNAVAILABLE`, an unknown one a `404`. New reservations
-  start `PENDING`.
+  `DOUBLE_BOOKING`, while back-to-back slots are fine. New reservations start
+  `PENDING`.
 - **Validation** failures are a `400` `VALIDATION_ERROR`: missing or malformed
-  fields, read-only `id`/`status`, unknown properties, or an empty `?type=`.
-  An unknown type such as `?type=STUDY_ROOM` matches nothing and returns `[]`.
+  fields, read-only `id`/`status`, unknown properties, a `resourceId` that
+  matches no resource, or an empty `?type=`. An unknown type such as
+  `?type=STUDY_ROOM` matches nothing and returns `[]`.
 - **Tenancy:** until authentication exists, every request is scoped to
   `DEFAULT_TENANT_ID`; clients can never choose the tenant.
 
@@ -151,9 +151,10 @@ Sending it again answers `409` with the lab's `ErrorResponse`, a `code` and a
 - **Status codes are typed per operation.** `ListResourcesResponses`,
   `CreateReservationResponses`, and `ListUserReservationsResponses` map every
   status the contract declares to its body type, and each controller's
-  `Response` is typed with its success entry (`200` or `201`). `400`, `404`,
-  and `409` are thrown as `ValidationError`, `NotFoundError`, and
-  `ConflictError`; anything unexpected becomes the central handler's `500`.
+  `Response` is typed with its success entry (`200` or `201`). `400` and `409`
+  are thrown as `ValidationError` and `ConflictError`; anything unexpected
+  becomes the central handler's `500`. `POST /reservations` uses exactly the
+  lab's `201`, `400`, `409`, and `500`.
 - **Request fields match the schema.** The body accepts exactly `resourceId`,
   `userId`, `startTime`, and `endTime`; the read-only `id` and `status` and
   any unknown property are rejected with `400`.

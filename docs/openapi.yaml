@@ -89,10 +89,10 @@ paths:
         server assigns `id`, and every new reservation starts `PENDING`. Read-only and
         unknown properties are rejected.
 
-        The slot is refused with 409 when the resource is unavailable, or when an active
-        (`PENDING` or `CONFIRMED`) reservation of the same resource overlaps it.
-        Back-to-back slots, where one ends exactly when the next starts, do not overlap,
-        and `CANCELLED` reservations never block a slot.
+        The slot is refused with 409 when an active (`PENDING` or `CONFIRMED`)
+        reservation of the same resource overlaps it. Back-to-back slots, where one ends
+        exactly when the next starts, do not overlap, and `CANCELLED` reservations never
+        block a slot.
       requestBody:
         required: true
         content:
@@ -121,8 +121,9 @@ paths:
         '400':
           description: >-
             The body is not a valid JSON object, a required field is missing, a read-only
-            or unknown property was sent, an identifier or date-time is malformed, or
-            `endTime` is not later than `startTime`.
+            or unknown property was sent, an identifier or date-time is malformed,
+            `endTime` is not later than `startTime`, or `resourceId` does not refer to an
+            existing resource.
           content:
             application/json:
               schema:
@@ -148,35 +149,22 @@ paths:
                   value:
                     code: VALIDATION_ERROR
                     message: endTime must be later than startTime.
-        '404':
-          description: No resource with this `resourceId` exists on the caller's campus.
+                unknownResource:
+                  summary: No resource has this resourceId
+                  value:
+                    code: VALIDATION_ERROR
+                    message: resourceId res-999 does not refer to an existing resource.
+        '409':
+          description: >-
+            Double booking: an active reservation of the resource overlaps the requested
+            slot.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                code: NOT_FOUND
-                message: Resource res-999 not found.
-        '409':
-          description: >-
-            The slot cannot be reserved: `DOUBLE_BOOKING` when an active reservation of the
-            resource overlaps it, `RESOURCE_UNAVAILABLE` when the resource is not available
-            for booking.
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                doubleBooking:
-                  summary: The resource is already reserved for an overlapping slot
-                  value:
-                    code: DOUBLE_BOOKING
-                    message: Resource is already reserved for this time slot.
-                resourceUnavailable:
-                  summary: The resource is not available for booking
-                  value:
-                    code: RESOURCE_UNAVAILABLE
-                    message: Resource res-202 is not available for reservations.
+                code: DOUBLE_BOOKING
+                message: Resource is already reserved for this time slot.
         '500':
           $ref: '#/components/responses/InternalServerError'
   /reservations/user/{userId}:
@@ -275,9 +263,7 @@ components:
           example: Main Library, Floor 3
         isAvailable:
           type: boolean
-          description: >-
-            Availability status. An unavailable resource, for example one under
-            maintenance, cannot be reserved.
+          description: Availability status of the resource.
           example: true
     Reservation:
       type: object
@@ -367,9 +353,8 @@ components:
         code:
           type: string
           description: >-
-            Stable, machine-readable error code: `VALIDATION_ERROR` (400), `NOT_FOUND`
-            (404), `DOUBLE_BOOKING` or `RESOURCE_UNAVAILABLE` (409), or
-            `INTERNAL_SERVER_ERROR` (500).
+            Stable, machine-readable error code: `VALIDATION_ERROR` (400),
+            `DOUBLE_BOOKING` (409), or `INTERNAL_SERVER_ERROR` (500).
           example: DOUBLE_BOOKING
         message:
           type: string
