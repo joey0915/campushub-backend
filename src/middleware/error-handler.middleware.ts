@@ -29,7 +29,7 @@ function toMalformedRequestError(error: unknown): ValidationError | undefined {
  */
 export function errorHandler(
   thrown: unknown,
-  req: Request,
+  _req: Request,
   res: Response,
   _next: NextFunction,
 ): void {
@@ -44,13 +44,7 @@ export function errorHandler(
     console.error('[error]', error instanceof Error ? error.stack : String(error));
   }
 
-  const body: ErrorResponseBody = {
-    status: 'error',
-    message,
-    code,
-    path: req.originalUrl,
-    timestamp: new Date().toISOString(),
-  };
+  const body: ErrorResponseBody = { code, message };
 
   if (env.nodeEnv === 'development' && !isKnown) {
     console.error('[error] returning generic 500 to client for the error above.');

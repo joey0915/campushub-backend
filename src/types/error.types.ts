@@ -1,8 +1,8 @@
-/** Shape of every error response the API returns. */
+/**
+ * Shape of every error response the API returns: `components/schemas/ErrorResponse`
+ * in docs/openapi.yaml, exactly the error code and message the lab defines.
+ */
 export interface ErrorResponseBody {
-  readonly status: 'error';
-  readonly message: string;
   readonly code: string;
-  readonly path: string;
-  readonly timestamp: string;
+  readonly message: string;
 }
