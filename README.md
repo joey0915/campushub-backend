@@ -133,15 +133,13 @@ The first `POST` answers `201`:
 }
 ```
 
-Sending it again answers `409`:
+Sending it again answers `409` with the lab's `ErrorResponse`, a `code` and a
+`message`:
 
 ```json
 {
-  "status": "error",
-  "message": "Resource is already reserved for this time slot.",
   "code": "DOUBLE_BOOKING",
-  "path": "/api/v1/reservations",
-  "timestamp": "2026-09-29T03:33:03.995Z"
+  "message": "Resource is already reserved for this time slot."
 }
 ```
 

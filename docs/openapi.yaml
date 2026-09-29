@@ -73,11 +73,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                status: error
                 code: VALIDATION_ERROR
                 message: type must be a non-empty string when provided.
-                path: /api/v1/resources?type=
-                timestamp: '2026-10-01T09:00:00.000Z'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /reservations:
@@ -134,35 +131,23 @@ paths:
                 malformedJson:
                   summary: The body cannot be parsed as a JSON object
                   value:
-                    status: error
                     code: VALIDATION_ERROR
                     message: Request body must be a valid JSON object.
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
                 missingField:
                   summary: A required field is missing
                   value:
-                    status: error
                     code: VALIDATION_ERROR
                     message: startTime is required.
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
                 invalidDateTime:
                   summary: A date-time is not ISO 8601 with an offset
                   value:
-                    status: error
                     code: VALIDATION_ERROR
                     message: 'startTime must be an ISO 8601 date-time with a UTC offset, e.g. 2026-10-01T10:00:00Z.'
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
                 invalidTimeRange:
                   summary: The slot does not end after it starts
                   value:
-                    status: error
                     code: VALIDATION_ERROR
                     message: endTime must be later than startTime.
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
         '404':
           description: No resource with this `resourceId` exists on the caller's campus.
           content:
@@ -170,11 +155,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                status: error
                 code: NOT_FOUND
                 message: Resource res-999 not found.
-                path: /api/v1/reservations
-                timestamp: '2026-10-01T09:00:00.000Z'
         '409':
           description: >-
             The slot cannot be reserved: `DOUBLE_BOOKING` when an active reservation of the
@@ -188,19 +170,13 @@ paths:
                 doubleBooking:
                   summary: The resource is already reserved for an overlapping slot
                   value:
-                    status: error
                     code: DOUBLE_BOOKING
                     message: Resource is already reserved for this time slot.
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
                 resourceUnavailable:
                   summary: The resource is not available for booking
                   value:
-                    status: error
                     code: RESOURCE_UNAVAILABLE
                     message: Resource res-202 is not available for reservations.
-                    path: /api/v1/reservations
-                    timestamp: '2026-10-01T09:00:00.000Z'
         '500':
           $ref: '#/components/responses/InternalServerError'
   /reservations/user/{userId}:
@@ -245,11 +221,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                status: error
                 code: VALIDATION_ERROR
                 message: userId must be 1-64 letters, digits, hyphens or underscores.
-                path: /api/v1/reservations/user/user%20456
-                timestamp: '2026-10-01T09:00:00.000Z'
         '500':
           $ref: '#/components/responses/InternalServerError'
 components:
@@ -388,16 +361,9 @@ components:
       description: Body of every 4xx and 5xx response.
       additionalProperties: false
       required:
-        - status
         - code
         - message
-        - path
-        - timestamp
       properties:
-        status:
-          type: string
-          enum:
-            - error
         code:
           type: string
           description: >-
@@ -409,15 +375,6 @@ components:
           type: string
           description: Human-readable explanation of the error.
           example: Resource is already reserved for this time slot.
-        path:
-          type: string
-          description: Request path, including any query string, that produced the error.
-          example: /api/v1/reservations
-        timestamp:
-          type: string
-          format: date-time
-          description: When the error occurred, in UTC.
-          example: '2026-10-01T09:00:00.000Z'
   responses:
     InternalServerError:
       description: Unexpected server error. Details are logged server-side and never returned.
@@ -426,8 +383,5 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            status: error
             code: INTERNAL_SERVER_ERROR
             message: An unexpected error occurred.
-            path: /api/v1/reservations
-            timestamp: '2026-10-01T09:00:00.000Z'
