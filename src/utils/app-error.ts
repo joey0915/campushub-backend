@@ -18,9 +18,22 @@ export class AppError extends Error {
   }
 }
 
+export class ValidationError extends AppError {
+  public constructor(message: string) {
+    super(message, 400, 'VALIDATION_ERROR');
+  }
+}
+
 export class NotFoundError extends AppError {
   public constructor(message: string) {
     super(message, 404, 'NOT_FOUND');
+  }
+}
+
+/** The request is valid but clashes with current state; `code` says how (e.g. DOUBLE_BOOKING). */
+export class ConflictError extends AppError {
+  public constructor(message: string, code: string) {
+    super(message, 409, code);
   }
 }
 

@@ -67,7 +67,7 @@ Requests flow in exactly one direction. **Never skip a layer, never reverse
 the arrows.**
 
 ```
-HTTP → routes → controllers → services → models → MongoDB
+HTTP → routes → controllers → services → repositories → models → MongoDB
 ```
 
 ```
@@ -78,6 +78,7 @@ src/
 ├── routes/               # Route definitions + middleware mapping ONLY
 ├── controllers/          # Request/response handling + HTTP status codes
 ├── services/             # Pure business logic
+├── repositories/         # Data access (in-memory until MongoDB is wired)
 ├── models/               # Mongoose schemas + their interfaces ONLY
 ├── middleware/           # Cross-cutting Express middleware (errors, auth, …)
 ├── types/                # Shared interfaces, DTOs, and type declarations
@@ -98,8 +99,8 @@ src/
   method, maps the result to a status code and response body.
 - Owns HTTP semantics: `200`, `201`, `204`, `400`, `401`, `403`, `404`, `409`,
   `500`.
-- **Forbidden:** any `Model.find()` / `Model.create()` / aggregation or other
-  Mongoose call, business rules, cross-entity orchestration.
+- **Forbidden:** any repository or Mongoose call (`Model.find()`,
+  `Model.create()`, aggregations), business rules, cross-entity orchestration.
 
 ### `services/` — business logic
 
@@ -110,6 +111,17 @@ src/
   a test with no HTTP server present.
 - Signals failure by throwing a typed domain error (see §4), never by
   returning `res.status(...)`.
+
+### `repositories/` — data access
+
+- The only code that reads or writes stored data: services call repositories,
+  never the store directly. Every method takes `tenantId` and filters on it.
+- Until MongoDB is wired (Lab 2 requires running without a database),
+  repositories are in-memory collections. They hold exactly the entity shapes
+  exported by `models/`, and every method already returns a `Promise`, so
+  moving to Mongoose changes the repository bodies only — not their signatures
+  and not the services.
+- **Forbidden:** business rules, HTTP concerns, service imports.
 
 ### `models/` — persistence shape
 
@@ -127,11 +139,16 @@ src/
   same pull request.
 - Deliberate lint exceptions live in `.redocly.lint-ignore.yaml`, each with its
   reason. Never disable a Redocly rule globally to get a clean run.
+- `src/types/reservation.ts` mirrors the contract's schemas and operations
+  one-to-one, and `src/routes/reservation.routes.ts` wires every operation in
+  it, including `GET /resources`. Both filenames are fixed by the course
+  (Lab 2), so they are the one exception to the naming rule below.
 
 ### Naming conventions
 
 - Files: `<entity>.<layer>.ts` → `booking.routes.ts`, `booking.controller.ts`,
-  `booking.service.ts`, `booking.model.ts`, `booking.types.ts`.
+  `booking.service.ts`, `booking.repository.ts`, `booking.model.ts`,
+  `booking.types.ts`.
 - Directories and files: `kebab-case`. Types/interfaces/classes:
   `PascalCase`. Variables and functions: `camelCase`. Constants:
   `UPPER_SNAKE_CASE`.
@@ -189,6 +206,9 @@ src/
 - Never log secrets, tokens, or full request bodies.
 - Every tenant-scoped query filters on `tenantId`. Never trust a `tenantId`
   taken straight from a request body.
+- Until authentication exists, controllers scope every request to
+  `env.defaultTenantId` (`DEFAULT_TENANT_ID`). Replace it with the
+  authenticated caller's tenant — never with a header, query, or body value.
 - Validate and narrow all external input at the controller boundary before it
   reaches a service.
 
@@ -278,7 +298,7 @@ implemented')` in code presented as finished.
 
 | ❌ Violation                                 | ✅ Compliant                                        |
 | -------------------------------------------- | --------------------------------------------------- |
-| `Model.find()` in a controller               | Controller → service → model                        |
+| `Model.find()` in a controller               | Controller → service → repository → model           |
 | `(req, res) => { /* logic */ }` in a route   | Route → `controller.method`                         |
 | `catch (err: any)`                           | `catch (error: unknown)` + narrowing                |
 | `function f(x) { ... }`                      | `function f(x: string): Promise<Result> { ... }`    |
