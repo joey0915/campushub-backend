@@ -123,14 +123,22 @@ paths:
                 status: PENDING
         '400':
           description: >-
-            The body is not a JSON object, a required field is missing, a read-only or
-            unknown property was sent, an identifier or date-time is malformed, or
+            The body is not a valid JSON object, a required field is missing, a read-only
+            or unknown property was sent, an identifier or date-time is malformed, or
             `endTime` is not later than `startTime`.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               examples:
+                malformedJson:
+                  summary: The body cannot be parsed as a JSON object
+                  value:
+                    status: error
+                    code: VALIDATION_ERROR
+                    message: Request body must be a valid JSON object.
+                    path: /api/v1/reservations
+                    timestamp: '2026-10-01T09:00:00.000Z'
                 missingField:
                   summary: A required field is missing
                   value:
