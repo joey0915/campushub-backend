@@ -12,6 +12,8 @@ export interface AppEnv {
   readonly port: number;
   readonly apiVersion: string;
   readonly mongodbUri: string;
+  /** Tenant every request is scoped to until authentication can identify the caller's. */
+  readonly defaultTenantId: string;
 }
 
 function readRequired(key: string): string {
@@ -54,4 +56,5 @@ export const env: AppEnv = {
   port: readPort('PORT', 3000),
   apiVersion: readOptional('API_VERSION', 'v1'),
   mongodbUri: readRequired('MONGODB_URI'),
+  defaultTenantId: readOptional('DEFAULT_TENANT_ID', 'default'),
 };
