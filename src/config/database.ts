@@ -1,7 +1,5 @@
 import mongoose from 'mongoose';
 
-import { env } from './env';
-
 /**
  * Mongoose connection lifecycle and connection-state reporting.
  *
@@ -23,9 +21,9 @@ export function getDatabaseState(): DatabaseState {
   return READY_STATE_LABELS[mongoose.connection.readyState] ?? 'unknown';
 }
 
-export async function connectDatabase(): Promise<void> {
+export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set('strictQuery', true);
-  await mongoose.connect(env.mongodbUri, { serverSelectionTimeoutMS: 5000 });
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
 }
 
 export async function disconnectDatabase(): Promise<void> {

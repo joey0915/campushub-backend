@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-
-import { Document, model, Schema, type Model } from 'mongoose';
+import { Document, model, Schema, type Model, type Types } from 'mongoose';
 
 import {
   IDENTIFIER_PATTERN,
@@ -10,14 +8,14 @@ import {
 
 /**
  * Persisted shape of a reservation. Its public fields map one-to-one to
- * `components/schemas/Reservation` in docs/openapi.yaml, with `_id` exposed as
- * `id` and the dates serialized as ISO 8601 strings. `tenantId` is the internal
- * partition key and is never serialized (AGENTS.md §1).
+ * `components/schemas/Reservation` in docs/openapi.yaml, with the ObjectIds
+ * serialized as hex strings and the dates as ISO 8601 strings. `tenantId` is
+ * the internal partition key and is never serialized (AGENTS.md §1).
  */
 export interface ReservationEntity {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
-  resourceId: string;
+  resourceId: Types.ObjectId;
   userId: string;
   startTime: Date;
   endTime: Date;
@@ -26,10 +24,9 @@ export interface ReservationEntity {
 
 const reservationSchema = new Schema<ReservationEntity>(
   {
-    _id: { type: String, default: (): string => randomUUID() },
     tenantId: { type: String, required: true, immutable: true },
-    resourceId: { type: String, required: true, match: IDENTIFIER_PATTERN, ref: 'Resource' },
-    userId: { type: String, required: true, match: IDENTIFIER_PATTERN, ref: 'User' },
+    resourceId: { type: Schema.Types.ObjectId, ref: 'Resource', required: true },
+    userId: { type: String, required: true, match: IDENTIFIER_PATTERN },
     startTime: { type: Date, required: true },
     endTime: {
       type: Date,

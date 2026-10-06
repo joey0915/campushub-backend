@@ -1,15 +1,15 @@
-import { model, Schema, type Model } from 'mongoose';
+import { model, Schema, type Model, type Types } from 'mongoose';
 
-import { IDENTIFIER_PATTERN, RESOURCE_TYPES, type ResourceType } from '../types/reservation';
+import { RESOURCE_TYPES, type ResourceType } from '../types/reservation';
 
 /**
  * Persisted shape of a campus resource. Its public fields map one-to-one to
- * `components/schemas/Resource` in docs/openapi.yaml, with `_id` exposed as
- * `id`. `tenantId` is the internal partition key and is never serialized
- * (AGENTS.md §1).
+ * `components/schemas/Resource` in docs/openapi.yaml, with the ObjectId `_id`
+ * exposed as `id`. `tenantId` is the internal partition key and is never
+ * serialized (AGENTS.md §1).
  */
 export interface ResourceEntity {
-  _id: string;
+  _id: Types.ObjectId;
   tenantId: string;
   name: string;
   type: ResourceType;
@@ -19,7 +19,6 @@ export interface ResourceEntity {
 
 const resourceSchema = new Schema<ResourceEntity>(
   {
-    _id: { type: String, required: true, match: IDENTIFIER_PATTERN },
     tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     type: { type: String, required: true, enum: RESOURCE_TYPES },
