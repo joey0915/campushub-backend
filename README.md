@@ -4,7 +4,8 @@ Multi-tenant campus resource management system. Backend REST API built with
 TypeScript, Express, and Mongoose.
 
 CS 5500 semester project. Lab 1: context engineering & repository initialization.
-Lab 2: executable specifications & OpenAPI contract design.
+Lab 2: executable specifications & OpenAPI contract design. Lab 3: architecture
+scaffolding & boundary enforcement.
 
 ## Agent context
 
@@ -17,9 +18,9 @@ Claude Code, Cursor, and Copilot are all bound by the same rules. Read
 
 - Node.js >= 20 (developed on v23.7.0)
 - npm >= 10
-- MongoDB running locally, or a connection string to a remote instance
-  (optional for now: the health check and the in-memory reservation API run
-  without it — see below)
+- MongoDB running locally, or a connection string to a remote instance. The
+  reservation API stores everything in it; only the health check works
+  without it.
 
 ## Setup
 
@@ -31,6 +32,18 @@ cp .env.example .env
 Then edit `.env` with your own values. `.env` is gitignored and must never be
 committed.
 
+Start MongoDB and load the demo data before testing (macOS with Homebrew shown;
+any MongoDB reachable at `MONGODB_URI` works):
+
+```bash
+brew tap mongodb/brew && brew install mongodb-community
+brew services start mongodb-community
+npm run seed
+```
+
+`npm run seed` resets the configured tenant to the demo catalogue below and
+deletes its reservations, so run it again for a clean test run.
+
 ## Scripts
 
 | Command             | Purpose                                           |
@@ -38,6 +51,7 @@ committed.
 | `npm run dev`       | Start the API with hot reload (nodemon + ts-node) |
 | `npm run build`     | Compile TypeScript to `dist/`                     |
 | `npm start`         | Run the compiled build                            |
+| `npm run seed`      | Reset MongoDB to the demo catalogue               |
 | `npm run typecheck` | Type-check with no emit                           |
 | `npm run lint`      | ESLint, including type-aware rules                |
 | `npm run format`    | Apply Prettier                                    |
@@ -92,10 +106,9 @@ npx @redocly/cli lint docs/openapi.yaml
 
 Behavior the contract pins down:
 
-- **Storage** is in memory, so no database is needed. A demo catalogue
-  (`res-101` Study Room 302, `res-201` 3D Printer A, …) is seeded at startup;
-  reservations reset when the process restarts. The Mongoose models in
-  `src/models/` define the same entities for when MongoDB is wired.
+- **Storage** is MongoDB, through the Mongoose models in `src/models/`. IDs are
+  ObjectIds; `npm run seed` loads fixed ones, e.g. `000000000000000000000101`
+  (Study Room 302) and `000000000000000000000201` (3D Printer A).
 - **Time** values are ISO 8601 date-times with an explicit offset (`Z` or
   `±HH:MM`), returned in UTC. `endTime` must be later than `startTime`.
 - **Conflicts** use half-open intervals: a slot that overlaps an active
@@ -116,7 +129,7 @@ curl -i http://localhost:3000/api/v1/resources
 curl -i "http://localhost:3000/api/v1/resources?type=ROOM"
 curl -i -X POST http://localhost:3000/api/v1/reservations \
   -H 'Content-Type: application/json' \
-  -d '{"resourceId":"res-101","userId":"user-456","startTime":"2026-10-01T10:00:00Z","endTime":"2026-10-01T11:00:00Z"}'
+  -d '{"resourceId":"000000000000000000000101","userId":"user-456","startTime":"2026-10-01T10:00:00Z","endTime":"2026-10-01T11:00:00Z"}'
 curl -i http://localhost:3000/api/v1/reservations/user/user-456
 ```
 
@@ -124,8 +137,8 @@ The first `POST` answers `201`:
 
 ```json
 {
-  "id": "1723f404-951f-4d52-a901-d02665c2b132",
-  "resourceId": "res-101",
+  "id": "6ac472da99227caf4851129f",
+  "resourceId": "000000000000000000000101",
   "userId": "user-456",
   "startTime": "2026-10-01T10:00:00.000Z",
   "endTime": "2026-10-01T11:00:00.000Z",
@@ -165,15 +178,15 @@ Requests flow in one direction only. See [AGENTS.md §3](AGENTS.md) for the
 enforced boundaries.
 
 ```
-HTTP → routes → controllers → services → repositories → models → MongoDB
+HTTP → routes → controllers → services → models → MongoDB
 ```
 
 ```
 docs/
 └── openapi.yaml                    # The API contract (source of truth)
 src/
-├── app.ts                          # Express app assembly only
-├── server.ts                       # Bootstrap: DB connect, listen, shutdown
+├── app.ts                          # Routers + middleware; DB connection shell
+├── server.ts                       # Bootstrap: await DB, listen, shutdown
 ├── config/
 │   ├── env.ts                      # The only module that reads process.env
 │   └── database.ts                 # Mongoose lifecycle + connection state
@@ -187,15 +200,14 @@ src/
 │   └── reservation.controller.ts   # Body/param validation → 201 / 200
 ├── services/
 │   ├── health.service.ts           # Business logic, no Express imports
-│   ├── resource.service.ts         # Entity → contract mapping
-│   └── reservation.service.ts      # Availability and double-booking rules
-├── repositories/                   # Data access: in-memory until MongoDB
-│   ├── resource.repository.ts      # Seeded demo catalogue
-│   └── reservation.repository.ts   # Atomic overlap check + insert
+│   ├── resource.service.ts         # Catalogue queries via ResourceModel
+│   └── reservation.service.ts      # Double-booking rule via ReservationModel
 ├── models/                         # Mongoose schemas + interfaces only
-│   ├── resource.model.ts
-│   ├── reservation.model.ts
-│   └── user.model.ts
+│   ├── Resource.model.ts
+│   ├── Reservation.model.ts        # resourceId: ObjectId ref → Resource
+│   └── User.model.ts
+├── scripts/
+│   └── seed.ts                     # npm run seed: demo catalogue
 ├── middleware/
 │   ├── not-found.middleware.ts     # Unmatched routes → typed 404
 │   └── error-handler.middleware.ts # The single error formatter

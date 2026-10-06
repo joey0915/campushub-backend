@@ -1,7 +1,7 @@
 import type { Server } from 'node:http';
 
-import { createApp } from './app';
-import { connectDatabase, disconnectDatabase } from './config/database';
+import { connectAppDatabase, createApp } from './app';
+import { disconnectDatabase } from './config/database';
 import { env } from './config/env';
 
 /**
@@ -10,7 +10,7 @@ import { env } from './config/env';
  */
 async function bootstrap(): Promise<void> {
   try {
-    await connectDatabase();
+    await connectAppDatabase();
     console.log('[startup] MongoDB connected.');
   } catch (error: unknown) {
     const reason = error instanceof Error ? error.message : String(error);

@@ -4,6 +4,7 @@ import { env } from '../config/env';
 import { reservationService } from '../services/reservation.service';
 import {
   IDENTIFIER_PATTERN,
+  OBJECT_ID_PATTERN,
   type CreateReservationRequest,
   type CreateReservationResponses,
   type ListUserReservationsParams,
@@ -28,6 +29,17 @@ function readIdentifier(source: Record<string, unknown>, field: string): string 
   }
   if (typeof value !== 'string' || !IDENTIFIER_PATTERN.test(value)) {
     throw new ValidationError(`${field} must be 1-64 letters, digits, hyphens or underscores.`);
+  }
+  return value;
+}
+
+function readObjectId(source: Record<string, unknown>, field: string): string {
+  const value = source[field];
+  if (value === undefined) {
+    throw new ValidationError(`${field} is required.`);
+  }
+  if (typeof value !== 'string' || !OBJECT_ID_PATTERN.test(value)) {
+    throw new ValidationError(`${field} must be a 24-character hexadecimal ObjectId.`);
   }
   return value;
 }
@@ -59,7 +71,7 @@ function parseCreateReservationRequest(body: unknown): CreateReservationRequest 
   }
 
   const request: CreateReservationRequest = {
-    resourceId: readIdentifier(body, 'resourceId'),
+    resourceId: readObjectId(body, 'resourceId'),
     userId: readIdentifier(body, 'userId'),
     startTime: readDateTime(body, 'startTime'),
     endTime: readDateTime(body, 'endTime'),

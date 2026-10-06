@@ -14,8 +14,11 @@ export type ResourceType = (typeof RESOURCE_TYPES)[number];
 export const RESERVATION_STATUSES = ['PENDING', 'CONFIRMED', 'CANCELLED'] as const;
 export type ReservationStatus = (typeof RESERVATION_STATUSES)[number];
 
-/** The `pattern` of resource and user identifiers, e.g. `res-101` or `user-456`. */
+/** The `pattern` of user identifiers, e.g. `user-456`. */
 export const IDENTIFIER_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** The `pattern` of MongoDB ObjectIds: resource and reservation ids. */
+export const OBJECT_ID_PATTERN = /^[0-9a-fA-F]{24}$/;
 
 /** `components/schemas/Resource` */
 export interface Resource {

@@ -1,7 +1,7 @@
 {
   "name": "campushub-backend",
   "version": "1.0.0",
-  "description": "CampusHub — multi-tenant campus resource management system (backend REST API)",
+  "description": "CampusHub \u2014 multi-tenant campus resource management system (backend REST API)",
   "main": "dist/server.js",
   "type": "commonjs",
   "engines": {
@@ -11,6 +11,7 @@
     "dev": "nodemon --watch src --ext ts --exec \"ts-node src/server.ts\"",
     "build": "tsc --project tsconfig.json",
     "start": "node dist/server.js",
+    "seed": "ts-node src/scripts/seed.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",

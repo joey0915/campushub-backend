@@ -56,12 +56,12 @@ paths:
                 items:
                   $ref: '#/components/schemas/Resource'
               example:
-                - id: res-101
+                - id: '000000000000000000000101'
                   name: Study Room 302
                   type: ROOM
                   location: Main Library, Floor 3
                   isAvailable: true
-                - id: res-201
+                - id: '000000000000000000000201'
                   name: 3D Printer A
                   type: EQUIPMENT
                   location: Innovation Makerspace
@@ -100,7 +100,7 @@ paths:
             schema:
               $ref: '#/components/schemas/Reservation'
             example:
-              resourceId: res-101
+              resourceId: '000000000000000000000101'
               userId: user-456
               startTime: '2026-10-01T10:00:00Z'
               endTime: '2026-10-01T11:00:00Z'
@@ -112,8 +112,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Reservation'
               example:
-                id: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
-                resourceId: res-101
+                id: 6702b1f0c3a4d5e6f7a8b9c0
+                resourceId: '000000000000000000000101'
                 userId: user-456
                 startTime: '2026-10-01T10:00:00.000Z'
                 endTime: '2026-10-01T11:00:00.000Z'
@@ -153,7 +153,7 @@ paths:
                   summary: No resource has this resourceId
                   value:
                     code: VALIDATION_ERROR
-                    message: resourceId res-999 does not refer to an existing resource.
+                    message: resourceId 000000000000000000000999 does not refer to an existing resource.
         '409':
           description: >-
             Double booking: an active reservation of the resource overlaps the requested
@@ -196,8 +196,8 @@ paths:
                 items:
                   $ref: '#/components/schemas/Reservation'
               example:
-                - id: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
-                  resourceId: res-101
+                - id: 6702b1f0c3a4d5e6f7a8b9c0
+                  resourceId: '000000000000000000000101'
                   userId: user-456
                   startTime: '2026-10-01T10:00:00.000Z'
                   endTime: '2026-10-01T11:00:00.000Z'
@@ -245,10 +245,10 @@ components:
       properties:
         id:
           type: string
-          pattern: '^[A-Za-z0-9_-]{1,64}$'
+          pattern: '^[0-9a-fA-F]{24}$'
           readOnly: true
-          description: Unique identifier of the resource.
-          example: res-101
+          description: Unique identifier of the resource, a MongoDB ObjectId.
+          example: '000000000000000000000101'
         name:
           type: string
           minLength: 1
@@ -282,15 +282,15 @@ components:
       properties:
         id:
           type: string
-          format: uuid
+          pattern: '^[0-9a-fA-F]{24}$'
           readOnly: true
-          description: Unique identifier, assigned by the server.
-          example: 5f1c2b7e-8d4a-4c3b-9e2f-6a7b8c9d0e1f
+          description: Unique identifier, a MongoDB ObjectId assigned by the server.
+          example: 6702b1f0c3a4d5e6f7a8b9c0
         resourceId:
           type: string
-          pattern: '^[A-Za-z0-9_-]{1,64}$'
-          description: '`id` of the reserved `Resource`.'
-          example: res-101
+          pattern: '^[0-9a-fA-F]{24}$'
+          description: '`id` of the reserved `Resource`, a MongoDB ObjectId reference.'
+          example: '000000000000000000000101'
         userId:
           type: string
           pattern: '^[A-Za-z0-9_-]{1,64}$'

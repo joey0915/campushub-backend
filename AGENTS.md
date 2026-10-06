@@ -67,20 +67,20 @@ Requests flow in exactly one direction. **Never skip a layer, never reverse
 the arrows.**
 
 ```
-HTTP → routes → controllers → services → repositories → models → MongoDB
+HTTP → routes → controllers → services → models → MongoDB
 ```
 
 ```
 src/
-├── app.ts                # Express app assembly (middleware + router mounting) only
-├── server.ts             # Process bootstrap: env load, DB connect, listen
+├── app.ts                # App assembly (middleware + router mounting) + DB connection shell
+├── server.ts             # Process bootstrap: awaits the DB connection, listens, shuts down
 ├── config/               # Typed configuration and DB connection setup
 ├── routes/               # Route definitions + middleware mapping ONLY
 ├── controllers/          # Request/response handling + HTTP status codes
 ├── services/             # Pure business logic
-├── repositories/         # Data access (in-memory until MongoDB is wired)
 ├── models/               # Mongoose schemas + their interfaces ONLY
 ├── middleware/           # Cross-cutting Express middleware (errors, auth, …)
+├── scripts/              # One-off CLI jobs, e.g. `npm run seed`
 ├── types/                # Shared interfaces, DTOs, and type declarations
 └── utils/                # Small, pure, framework-agnostic helpers
 ```
@@ -99,29 +99,19 @@ src/
   method, maps the result to a status code and response body.
 - Owns HTTP semantics: `200`, `201`, `204`, `400`, `401`, `403`, `404`, `409`,
   `500`.
-- **Forbidden:** any repository or Mongoose call (`Model.find()`,
-  `Model.create()`, aggregations), business rules, cross-entity orchestration.
+- **Forbidden:** any Mongoose call (`Model.find()`, `Model.create()`,
+  aggregations), business rules, cross-entity orchestration.
 
 ### `services/` — business logic
 
-- Pure business logic and orchestration. Accepts and returns plain typed
-  objects/DTOs.
+- Pure business logic and orchestration, and **all database interaction**
+  through the Mongoose models. Accepts and returns plain typed objects/DTOs.
+  Every query filters on `tenantId`.
 - **Forbidden:** touching `req`, `res`, or `next`; importing from `express`;
   knowing about HTTP status codes. A service must be callable from a CLI job or
   a test with no HTTP server present.
 - Signals failure by throwing a typed domain error (see §4), never by
   returning `res.status(...)`.
-
-### `repositories/` — data access
-
-- The only code that reads or writes stored data: services call repositories,
-  never the store directly. Every method takes `tenantId` and filters on it.
-- Until MongoDB is wired (Lab 2 requires running without a database),
-  repositories are in-memory collections. They hold exactly the entity shapes
-  exported by `models/`, and every method already returns a `Promise`, so
-  moving to Mongoose changes the repository bodies only — not their signatures
-  and not the services.
-- **Forbidden:** business rules, HTTP concerns, service imports.
 
 ### `models/` — persistence shape
 
@@ -141,14 +131,15 @@ src/
   reason. Never disable a Redocly rule globally to get a clean run.
 - `src/types/reservation.ts` mirrors the contract's schemas and operations
   one-to-one, and `src/routes/reservation.routes.ts` wires every operation in
-  it, including `GET /resources`. Both filenames are fixed by the course
-  (Lab 2), so they are the one exception to the naming rule below.
+  it, including `GET /resources`. These two filenames and the PascalCase model
+  files (`src/models/Resource.model.ts`, `Reservation.model.ts`,
+  `User.model.ts`) are fixed by the course (Labs 2–3), so they are the
+  exceptions to the naming rule below.
 
 ### Naming conventions
 
 - Files: `<entity>.<layer>.ts` → `booking.routes.ts`, `booking.controller.ts`,
-  `booking.service.ts`, `booking.repository.ts`, `booking.model.ts`,
-  `booking.types.ts`.
+  `booking.service.ts`, `booking.types.ts`; models are `Booking.model.ts`.
 - Directories and files: `kebab-case`. Types/interfaces/classes:
   `PascalCase`. Variables and functions: `camelCase`. Constants:
   `UPPER_SNAKE_CASE`.
@@ -231,7 +222,8 @@ src/
   - `npm run build` — must succeed.
   - `npx @redocly/cli lint docs/openapi.yaml` — must pass with zero errors.
 - If you changed a route, also verify it with `curl` against a running
-  `npm run dev` and paste the actual response.
+  `npm run dev` and paste the actual response. The API needs MongoDB at
+  `MONGODB_URI`: start it, then run `npm run seed` to reset the demo data.
 - **Never report success you have not observed.** If a command fails, show the
   failure.
 
@@ -298,7 +290,7 @@ implemented')` in code presented as finished.
 
 | ❌ Violation                                 | ✅ Compliant                                        |
 | -------------------------------------------- | --------------------------------------------------- |
-| `Model.find()` in a controller               | Controller → service → repository → model           |
+| `Model.find()` in a controller               | Controller → service → model                        |
 | `(req, res) => { /* logic */ }` in a route   | Route → `controller.method`                         |
 | `catch (err: any)`                           | `catch (error: unknown)` + narrowing                |
 | `function f(x) { ... }`                      | `function f(x: string): Promise<Result> { ... }`    |
