@@ -4,8 +4,14 @@
 # Each entry is a deliberate exception, not a silenced defect:
 # - servers/0/url: Lab 2 mandates the local development server http://localhost:3000/api/v1.
 # - User: drafted as a core model (Lab 2 goal 2) before any operation returns it.
+# - /reservations/{id}/confirm and /cancel: Lab 4 fixes these paths beside the lab's
+#   /reservations/user/{userId}. They never collide: `user` is not a 24-hex ObjectId,
+#   and the verbs differ (PATCH vs GET).
 docs/openapi.yaml:
   no-server-example.com:
     - '#/servers/0/url'
   no-unused-components:
     - '#/components/schemas/User'
+  no-ambiguous-paths:
+    - '#/paths/~1reservations~1{id}~1confirm'
+    - '#/paths/~1reservations~1{id}~1cancel'

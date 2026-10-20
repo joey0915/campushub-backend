@@ -17,5 +17,13 @@ reservationRouter.get(
   '/reservations/user/:userId',
   asyncHandler(reservationController.listUserReservations),
 );
+reservationRouter.patch(
+  '/reservations/:id/confirm',
+  asyncHandler(reservationController.confirmReservation),
+);
+reservationRouter.patch(
+  '/reservations/:id/cancel',
+  asyncHandler(reservationController.cancelReservation),
+);
 
 export { reservationRouter };

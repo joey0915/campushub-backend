@@ -5,7 +5,8 @@ TypeScript, Express, and Mongoose.
 
 CS 5500 semester project. Lab 1: context engineering & repository initialization.
 Lab 2: executable specifications & OpenAPI contract design. Lab 3: architecture
-scaffolding & boundary enforcement.
+scaffolding & boundary enforcement. Lab 4: reservation lifecycle endpoints and
+the agent steering log in [docs/lab4-steering-log.md](docs/lab4-steering-log.md).
 
 ## Agent context
 
@@ -91,11 +92,13 @@ The API is contract-first: [docs/openapi.yaml](docs/openapi.yaml) (OpenAPI
 [src/routes/reservation.routes.ts](src/routes/reservation.routes.ts) wires its
 operations under `/api/v1`.
 
-| Operation                                | Success | Errors   |
-| ---------------------------------------- | ------- | -------- |
-| `GET /resources` (optional `?type=ROOM`) | 200     | 400      |
-| `POST /reservations`                     | 201     | 400, 409 |
-| `GET /reservations/user/{userId}`        | 200     | 400      |
+| Operation                                                     | Success | Errors        |
+| ------------------------------------------------------------- | ------- | ------------- |
+| `GET /resources` (optional `?type=ROOM`, `?isAvailable=true`) | 200     | 400           |
+| `POST /reservations`                                          | 201     | 400, 409      |
+| `GET /reservations/user/{userId}`                             | 200     | 400           |
+| `PATCH /reservations/{id}/confirm`                            | 200     | 400, 404, 409 |
+| `PATCH /reservations/{id}/cancel`                             | 200     | 400, 404, 409 |
 
 Lint the contract (Redocly runs through `npx`; it is not a project
 dependency):
@@ -115,9 +118,17 @@ Behavior the contract pins down:
   (`PENDING` or `CONFIRMED`) reservation of the same resource is a `409`
   `DOUBLE_BOOKING`, while back-to-back slots are fine. New reservations start
   `PENDING`.
+- **Lifecycle:** `PENDING → CONFIRMED`, and `PENDING` or `CONFIRMED →
+CANCELLED`. Any other move is a `409` `INVALID_STATUS_TRANSITION`, and an
+  unknown reservation id is a `404` `NOT_FOUND`. The status check is part of the
+  update filter, so concurrent requests cannot both succeed. Cancelling frees
+  the slot at once.
+- **A student's reservations** are all of them, `CANCELLED` included, ordered
+  by `startTime`.
 - **Validation** failures are a `400` `VALIDATION_ERROR`: missing or malformed
   fields, read-only `id`/`status`, unknown properties, a `resourceId` that
-  matches no resource, or an empty `?type=`. An unknown type such as
+  matches no resource, an empty `?type=`, or an `?isAvailable=` other than
+  `true`/`false`. An unknown type such as
   `?type=STUDY_ROOM` matches nothing and returns `[]`.
 - **Tenancy:** until authentication exists, every request is scoped to
   `DEFAULT_TENANT_ID`; clients can never choose the tenant.
@@ -126,11 +137,13 @@ Try it with `npm run dev` running:
 
 ```bash
 curl -i http://localhost:3000/api/v1/resources
-curl -i "http://localhost:3000/api/v1/resources?type=ROOM"
+curl -i "http://localhost:3000/api/v1/resources?type=ROOM&isAvailable=true"
 curl -i -X POST http://localhost:3000/api/v1/reservations \
   -H 'Content-Type: application/json' \
   -d '{"resourceId":"000000000000000000000101","userId":"user-456","startTime":"2026-10-01T10:00:00Z","endTime":"2026-10-01T11:00:00Z"}'
 curl -i http://localhost:3000/api/v1/reservations/user/user-456
+curl -i -X PATCH http://localhost:3000/api/v1/reservations/<id>/confirm
+curl -i -X PATCH http://localhost:3000/api/v1/reservations/<id>/cancel
 ```
 
 The first `POST` answers `201`:
@@ -183,7 +196,8 @@ HTTP → routes → controllers → services → models → MongoDB
 
 ```
 docs/
-└── openapi.yaml                    # The API contract (source of truth)
+├── openapi.yaml                    # The API contract (source of truth)
+└── lab4-steering-log.md            # Lab 4 agent failure-loop log
 src/
 ├── app.ts                          # Routers + middleware; DB connection shell
 ├── server.ts                       # Bootstrap: await DB, listen, shutdown
@@ -201,7 +215,7 @@ src/
 ├── services/
 │   ├── health.service.ts           # Business logic, no Express imports
 │   ├── resource.service.ts         # Catalogue queries via ResourceModel
-│   └── reservation.service.ts      # Double-booking rule via ReservationModel
+│   └── reservation.service.ts      # Double booking + status lifecycle
 ├── models/                         # Mongoose schemas + interfaces only
 │   ├── Resource.model.ts
 │   ├── Reservation.model.ts        # resourceId: ObjectId ref → Resource

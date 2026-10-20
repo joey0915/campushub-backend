@@ -66,11 +66,17 @@ export type ErrorResponse = ErrorResponseBody;
 /** Validated query of `GET /resources`, passed to the service as its filter. */
 export interface ResourceFilter {
   readonly type?: string;
+  readonly isAvailable?: boolean;
 }
 
 /** Path parameters of `GET /reservations/user/{userId}`. */
 export interface ListUserReservationsParams {
   readonly userId: string;
+}
+
+/** `components/parameters/ReservationId`: the path of the status-transition operations. */
+export interface ReservationIdParams {
+  readonly id: string;
 }
 
 /** Response bodies of `GET /resources`, keyed by declared status code. */
@@ -92,5 +98,17 @@ export interface CreateReservationResponses {
 export interface ListUserReservationsResponses {
   readonly 200: readonly Reservation[];
   readonly 400: ErrorResponse;
+  readonly 500: ErrorResponse;
+}
+
+/**
+ * Response bodies of `PATCH /reservations/{id}/confirm` and
+ * `PATCH /reservations/{id}/cancel`, keyed by declared status code.
+ */
+export interface ReservationTransitionResponses {
+  readonly 200: Reservation;
+  readonly 400: ErrorResponse;
+  readonly 404: ErrorResponse;
+  readonly 409: ErrorResponse;
   readonly 500: ErrorResponse;
 }
