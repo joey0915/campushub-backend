@@ -172,15 +172,17 @@ Sending it again answers `409` with the lab's `ErrorResponse`, a `code` and a
 ### Contract audit (Lab 2 Part 3)
 
 - **Route paths match the spec exactly.** `reservation.routes.ts` declares
-  `/resources`, `/reservations`, and `/reservations/user/:userId`, mounted
-  under `/api/v1`, the contract's server URL.
+  `/resources`, `/reservations`, `/reservations/user/:userId`,
+  `/reservations/:id/confirm`, and `/reservations/:id/cancel`, mounted under
+  `/api/v1`, the contract's server URL.
 - **Status codes are typed per operation.** `ListResourcesResponses`,
-  `CreateReservationResponses`, and `ListUserReservationsResponses` map every
-  status the contract declares to its body type, and each controller's
-  `Response` is typed with its success entry (`200` or `201`). `400` and `409`
-  are thrown as `ValidationError` and `ConflictError`; anything unexpected
-  becomes the central handler's `500`. `POST /reservations` uses exactly the
-  lab's `201`, `400`, `409`, and `500`.
+  `CreateReservationResponses`, `ListUserReservationsResponses`, and
+  `ReservationTransitionResponses` (confirm and cancel) map every status the
+  contract declares to its body type, and each controller's `Response` is
+  typed with its success entry (`200` or `201`). `400`, `404`, and `409` are
+  thrown as `ValidationError`, `NotFoundError`, and `ConflictError`; anything
+  unexpected becomes the central handler's `500`. `POST /reservations` uses
+  exactly the lab's `201`, `400`, `409`, and `500`.
 - **Request fields match the schema.** The body accepts exactly `resourceId`,
   `userId`, `startTime`, and `endTime`; the read-only `id` and `status` and
   any unknown property are rejected with `400`.
