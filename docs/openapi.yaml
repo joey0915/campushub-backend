@@ -33,10 +33,10 @@ paths:
       operationId: listResources
       summary: List campus resources
       description: >-
-        Returns the campus's resources in catalogue order, optionally filtered by `type`.
-        The filter matches `Resource.type` exactly and is case-sensitive; a value that
-        matches no resource, such as `STUDY_ROOM`, yields an empty array rather than an
-        error.
+        Returns the campus's resources in catalogue order, optionally filtered by `type`
+        and `isAvailable`; both filters must match when both are given. The `type` filter
+        matches `Resource.type` exactly and is case-sensitive; a value that matches no
+        resource, such as `STUDY_ROOM`, yields an empty array rather than an error.
       parameters:
         - name: type
           in: query
@@ -46,6 +46,13 @@ paths:
             type: string
             minLength: 1
           example: ROOM
+        - name: isAvailable
+          in: query
+          required: false
+          description: Only return resources whose `isAvailable` equals this value.
+          schema:
+            type: boolean
+          example: true
       responses:
         '200':
           description: The matching resources, possibly none.
@@ -67,14 +74,22 @@ paths:
                   location: Innovation Makerspace
                   isAvailable: true
         '400':
-          description: '`type` was provided but is empty.'
+          description: '`type` was provided but is empty, or `isAvailable` is not `true` or `false`.'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
-              example:
-                code: VALIDATION_ERROR
-                message: type must be a non-empty string when provided.
+              examples:
+                emptyType:
+                  summary: '`type` is empty'
+                  value:
+                    code: VALIDATION_ERROR
+                    message: type must be a non-empty string when provided.
+                invalidIsAvailable:
+                  summary: '`isAvailable` is not a boolean'
+                  value:
+                    code: VALIDATION_ERROR
+                    message: isAvailable must be true or false when provided.
         '500':
           $ref: '#/components/responses/InternalServerError'
   /reservations:
@@ -172,11 +187,12 @@ paths:
       tags:
         - Reservations
       operationId: listUserReservations
-      summary: List a student's active reservations
+      summary: List a student's reservations
       description: >-
-        Returns the student's active (`PENDING` or `CONFIRMED`) reservations on the
-        caller's campus, ordered by `startTime`. `CANCELLED` reservations are omitted,
-        and a student without active reservations yields an empty array.
+        Returns every reservation the student holds on the caller's campus, whatever its
+        `status`, ordered by `startTime`. `CANCELLED` reservations are included so the
+        student can see their history; they no longer hold a slot. A student without
+        reservations yields an empty array.
       parameters:
         - name: userId
           in: path
@@ -188,7 +204,7 @@ paths:
           example: user-456
       responses:
         '200':
-          description: The student's active reservations, possibly none.
+          description: The student's reservations, possibly none.
           content:
             application/json:
               schema:
@@ -202,6 +218,12 @@ paths:
                   startTime: '2026-10-01T10:00:00.000Z'
                   endTime: '2026-10-01T11:00:00.000Z'
                   status: PENDING
+                - id: 6702b1f0c3a4d5e6f7a8b9c1
+                  resourceId: '000000000000000000000201'
+                  userId: user-456
+                  startTime: '2026-10-02T14:00:00.000Z'
+                  endTime: '2026-10-02T15:00:00.000Z'
+                  status: CANCELLED
         '400':
           description: '`userId` is not a valid identifier.'
           content:
@@ -213,7 +235,98 @@ paths:
                 message: userId must be 1-64 letters, digits, hyphens or underscores.
         '500':
           $ref: '#/components/responses/InternalServerError'
+  /reservations/{id}/confirm:
+    patch:
+      tags:
+        - Reservations
+      operationId: confirmReservation
+      summary: Confirm a reservation
+      description: >-
+        Transitions a `PENDING` reservation to `CONFIRMED`. The slot stays held. Takes no
+        request body.
+      parameters:
+        - $ref: '#/components/parameters/ReservationId'
+      responses:
+        '200':
+          description: The reservation is now `CONFIRMED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+              example:
+                id: 6702b1f0c3a4d5e6f7a8b9c0
+                resourceId: '000000000000000000000101'
+                userId: user-456
+                startTime: '2026-10-01T10:00:00.000Z'
+                endTime: '2026-10-01T11:00:00.000Z'
+                status: CONFIRMED
+        '400':
+          $ref: '#/components/responses/InvalidReservationId'
+        '404':
+          $ref: '#/components/responses/ReservationNotFound'
+        '409':
+          description: The reservation is not `PENDING`, so it cannot become `CONFIRMED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INVALID_STATUS_TRANSITION
+                message: Reservation is CANCELLED and cannot become CONFIRMED.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /reservations/{id}/cancel:
+    patch:
+      tags:
+        - Reservations
+      operationId: cancelReservation
+      summary: Cancel a reservation
+      description: >-
+        Transitions a `PENDING` or `CONFIRMED` reservation to `CANCELLED`, which releases
+        its slot at once: a new reservation of the same resource and time succeeds
+        immediately afterwards. Takes no request body.
+      parameters:
+        - $ref: '#/components/parameters/ReservationId'
+      responses:
+        '200':
+          description: The reservation is now `CANCELLED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reservation'
+              example:
+                id: 6702b1f0c3a4d5e6f7a8b9c0
+                resourceId: '000000000000000000000101'
+                userId: user-456
+                startTime: '2026-10-01T10:00:00.000Z'
+                endTime: '2026-10-01T11:00:00.000Z'
+                status: CANCELLED
+        '400':
+          $ref: '#/components/responses/InvalidReservationId'
+        '404':
+          $ref: '#/components/responses/ReservationNotFound'
+        '409':
+          description: The reservation is already `CANCELLED`, so it cannot become `CANCELLED`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                code: INVALID_STATUS_TRANSITION
+                message: Reservation is CANCELLED and cannot become CANCELLED.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 components:
+  parameters:
+    ReservationId:
+      name: id
+      in: path
+      required: true
+      description: Identifier of the reservation, a MongoDB ObjectId.
+      schema:
+        type: string
+        pattern: '^[0-9a-fA-F]{24}$'
+      example: 6702b1f0c3a4d5e6f7a8b9c0
   schemas:
     ResourceType:
       type: string
@@ -353,14 +466,33 @@ components:
         code:
           type: string
           description: >-
-            Stable, machine-readable error code: `VALIDATION_ERROR` (400),
-            `DOUBLE_BOOKING` (409), or `INTERNAL_SERVER_ERROR` (500).
+            Stable, machine-readable error code: `VALIDATION_ERROR` (400), `NOT_FOUND`
+            (404), `DOUBLE_BOOKING` or `INVALID_STATUS_TRANSITION` (409), or
+            `INTERNAL_SERVER_ERROR` (500).
           example: DOUBLE_BOOKING
         message:
           type: string
           description: Human-readable explanation of the error.
           example: Resource is already reserved for this time slot.
   responses:
+    InvalidReservationId:
+      description: '`id` is not a valid ObjectId.'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: VALIDATION_ERROR
+            message: id must be a 24-character hexadecimal ObjectId.
+    ReservationNotFound:
+      description: No reservation with this `id` exists on the caller's campus.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            code: NOT_FOUND
+            message: Reservation 6702b1f0c3a4d5e6f7a8b9c0 not found.
     InternalServerError:
       description: Unexpected server error. Details are logged server-side and never returned.
       content:

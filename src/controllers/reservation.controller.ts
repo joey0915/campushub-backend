@@ -9,6 +9,8 @@ import {
   type CreateReservationResponses,
   type ListUserReservationsParams,
   type ListUserReservationsResponses,
+  type ReservationIdParams,
+  type ReservationTransitionResponses,
 } from '../types/reservation';
 import { ValidationError } from '../utils/app-error';
 import { isIsoDateTime, isRecord } from '../utils/validation';
@@ -86,10 +88,14 @@ function parseListUserReservationsParams(params: Request['params']): ListUserRes
   return { userId: readIdentifier(params, 'userId') };
 }
 
+function parseReservationIdParams(params: Request['params']): ReservationIdParams {
+  return { id: readObjectId(params, 'id') };
+}
+
 /**
  * HTTP boundary for the reservation operations in docs/openapi.yaml: every
  * input is narrowed to its contract type here (400 on failure), then exactly
- * one service call; the service's 400/409 errors reach the central middleware
+ * one service call; the service's 400/404/409 errors reach the central middleware
  * through asyncHandler. Nothing authenticates the caller yet, so the tenant is
  * the deployment's configured one, never a client-sent value (AGENTS.md §4).
  */
@@ -109,11 +115,31 @@ export const reservationController = {
     res: Response<ListUserReservationsResponses[200]>,
   ): Promise<void> => {
     const { userId } = parseListUserReservationsParams(req.params);
-    const reservations = await reservationService.listActiveReservationsForUser(
+    const reservations = await reservationService.listReservationsForUser(
       env.defaultTenantId,
       userId,
     );
 
     res.status(200).json(reservations);
+  },
+
+  confirmReservation: async (
+    req: Request,
+    res: Response<ReservationTransitionResponses[200]>,
+  ): Promise<void> => {
+    const { id } = parseReservationIdParams(req.params);
+    const reservation = await reservationService.confirmReservation(env.defaultTenantId, id);
+
+    res.status(200).json(reservation);
+  },
+
+  cancelReservation: async (
+    req: Request,
+    res: Response<ReservationTransitionResponses[200]>,
+  ): Promise<void> => {
+    const { id } = parseReservationIdParams(req.params);
+    const reservation = await reservationService.cancelReservation(env.defaultTenantId, id);
+
+    res.status(200).json(reservation);
   },
 } as const;

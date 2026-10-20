@@ -7,13 +7,17 @@ import type {
   Reservation,
   ReservationStatus,
 } from '../types/reservation';
-import { ConflictError, ValidationError } from '../utils/app-error';
+import { ConflictError, NotFoundError, ValidationError } from '../utils/app-error';
 
-/**
- * Statuses that hold a time slot: what "active" means for a student's
- * reservations, and the only ones that block an overlapping request.
- */
+/** Statuses that hold a time slot: the only ones that block an overlapping request. */
 const ACTIVE_STATUSES: readonly ReservationStatus[] = ['PENDING', 'CONFIRMED'];
+
+/** The lifecycle: each target status and the statuses a reservation may reach it from. */
+const ALLOWED_TRANSITIONS = {
+  CONFIRMED: ['PENDING'],
+  CANCELLED: ['PENDING', 'CONFIRMED'],
+} as const satisfies Readonly<Partial<Record<ReservationStatus, readonly ReservationStatus[]>>>;
+type TargetStatus = keyof typeof ALLOWED_TRANSITIONS;
 
 // Explicit field mapping is what keeps the internal tenantId out of responses.
 function toReservation(entity: ReservationEntity): Reservation {
@@ -76,15 +80,56 @@ export const reservationService = {
     return toReservation(created.toObject<ReservationEntity>());
   },
 
-  async listActiveReservationsForUser(tenantId: string, userId: string): Promise<Reservation[]> {
-    const reservations = await ReservationModel.find({
-      tenantId,
-      userId,
-      status: { $in: ACTIVE_STATUSES },
-    })
+  async listReservationsForUser(tenantId: string, userId: string): Promise<Reservation[]> {
+    const reservations = await ReservationModel.find({ tenantId, userId })
       .sort({ startTime: 1, _id: 1 })
       .lean<ReservationEntity[]>()
       .exec();
     return reservations.map(toReservation);
   },
+
+  confirmReservation(tenantId: string, id: string): Promise<Reservation> {
+    return transitionStatus(tenantId, id, 'CONFIRMED');
+  },
+
+  // Cancelling releases the slot at once: the overlap check only counts ACTIVE_STATUSES.
+  cancelReservation(tenantId: string, id: string): Promise<Reservation> {
+    return transitionStatus(tenantId, id, 'CANCELLED');
+  },
 } as const;
+
+/**
+ * Moves a reservation to `target`. The allowed source statuses are part of the
+ * update filter, so the check and the write are one atomic operation: two
+ * concurrent requests cannot both act on the same starting status.
+ */
+async function transitionStatus(
+  tenantId: string,
+  id: string,
+  target: TargetStatus,
+): Promise<Reservation> {
+  const _id = new Types.ObjectId(id);
+  const updated = await ReservationModel.findOneAndUpdate(
+    { _id, tenantId, status: { $in: ALLOWED_TRANSITIONS[target] } },
+    { $set: { status: target } },
+    { returnDocument: 'after', runValidators: true },
+  )
+    .lean<ReservationEntity>()
+    .exec();
+  if (updated !== null) {
+    return toReservation(updated);
+  }
+
+  // No match: either the reservation does not exist here, or its status forbids the move.
+  const current = await ReservationModel.findOne({ _id, tenantId })
+    .select({ status: 1 })
+    .lean<Pick<ReservationEntity, 'status'>>()
+    .exec();
+  if (current === null) {
+    throw new NotFoundError(`Reservation ${id} not found.`);
+  }
+  throw new ConflictError(
+    `Reservation is ${current.status} and cannot become ${target}.`,
+    'INVALID_STATUS_TRANSITION',
+  );
+}

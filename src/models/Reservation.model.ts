@@ -52,8 +52,8 @@ const reservationSchema = new Schema<ReservationEntity>(
 
 // Double-booking check: one tenant's active reservations of one resource, by time.
 reservationSchema.index({ tenantId: 1, resourceId: 1, status: 1, startTime: 1 });
-// GET /reservations/user/{userId}: one student's active reservations, by start time.
-reservationSchema.index({ tenantId: 1, userId: 1, status: 1, startTime: 1 });
+// GET /reservations/user/{userId}: all of one student's reservations, by start time.
+reservationSchema.index({ tenantId: 1, userId: 1, startTime: 1 });
 
 export const ReservationModel: Model<ReservationEntity> = model<ReservationEntity>(
   'Reservation',

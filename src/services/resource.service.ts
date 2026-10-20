@@ -30,13 +30,14 @@ export const resourceService = {
   async listResources(tenantId: string, filter: ResourceFilter): Promise<Resource[]> {
     // The contract filters on any non-empty string; one outside the enum (e.g.
     // STUDY_ROOM) can match nothing, so it answers [] without a query.
-    const { type } = filter;
+    const { type, isAvailable } = filter;
     if (type !== undefined && !isResourceType(type)) {
       return [];
     }
     const resources = await ResourceModel.find({
       tenantId,
       ...(type === undefined ? {} : { type }),
+      ...(isAvailable === undefined ? {} : { isAvailable }),
     })
       .sort({ _id: 1 })
       .lean<ResourceEntity[]>()
