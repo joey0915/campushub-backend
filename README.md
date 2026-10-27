@@ -1,12 +1,15 @@
-# CampusHub — Backend API
+# CampusHub
 
-Multi-tenant campus resource management system. Backend REST API built with
-TypeScript, Express, and Mongoose.
+Multi-tenant campus resource management system. A backend REST API built with
+TypeScript, Express, and Mongoose (`src/`), and a React + Vite client that
+consumes it ([`client/`](client/README.md)).
 
 CS 5500 semester project. Lab 1: context engineering & repository initialization.
 Lab 2: executable specifications & OpenAPI contract design. Lab 3: architecture
 scaffolding & boundary enforcement. Lab 4: reservation lifecycle endpoints and
 the agent steering log in [docs/lab4-steering-log.md](docs/lab4-steering-log.md).
+Lab 5: the React client in [client/](client/README.md), with its error-handling
+audit in [docs/lab5-steering-log.md](docs/lab5-steering-log.md).
 
 ## Agent context
 
@@ -187,6 +190,24 @@ Sending it again answers `409` with the lab's `ErrorResponse`, a `code` and a
   `userId`, `startTime`, and `endTime`; the read-only `id` and `status` and
   any unknown property are rejected with `400`.
 
+## Client (Lab 5)
+
+With the API running, start the client from `client/`:
+
+```bash
+cd client
+npm install
+cp .env.example .env
+npm run dev   # http://localhost:5173, proxies /api to the backend
+```
+
+It browses and filters resources, books a slot with client-side validation,
+and lists and cancels the student's reservations. Every async view has explicit
+loading and error states: a double booking shows the 409 `DOUBLE_BOOKING`
+alert, and a stopped API shows an "unreachable" alert with Retry. See
+[client/README.md](client/README.md) and the audit in
+[docs/lab5-steering-log.md](docs/lab5-steering-log.md).
+
 ## Architecture
 
 Requests flow in one direction only. See [AGENTS.md §3](AGENTS.md) for the
@@ -199,7 +220,9 @@ HTTP → routes → controllers → services → models → MongoDB
 ```
 docs/
 ├── openapi.yaml                    # The API contract (source of truth)
-└── lab4-steering-log.md            # Lab 4 agent failure-loop log
+├── lab4-steering-log.md            # Lab 4 agent failure-loop log
+└── lab5-steering-log.md            # Lab 5 client log + error-handling audit
+client/                             # React + Vite client (see client/README.md)
 src/
 ├── app.ts                          # Routers + middleware; DB connection shell
 ├── server.ts                       # Bootstrap: await DB, listen, shutdown

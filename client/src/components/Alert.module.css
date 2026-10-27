@@ -1,0 +1,45 @@
+.alert {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid;
+  border-radius: 8px;
+  font-size: 0.925rem;
+}
+
+.error {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+  border-color: var(--color-danger-border);
+}
+
+.success {
+  color: var(--color-success);
+  background: var(--color-success-bg);
+  border-color: var(--color-success-border);
+}
+
+.body {
+  display: grid;
+  gap: 2px;
+}
+
+.title {
+  font-weight: 600;
+}
+
+.actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.action {
+  padding: 2px 8px;
+  border: 1px solid currentcolor;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}

@@ -1,4 +1,4 @@
-# AGENTS.md — CampusHub Backend
+# AGENTS.md — CampusHub
 
 Governing context for **any** AI coding agent operating in this repository
 (Claude Code, Cursor, Copilot, Codex, Aider, Gemini CLI, …).
@@ -13,7 +13,12 @@ producing non-compliant code. Never silently relax a rule.
 
 **CampusHub** is a multi-tenant campus resource management system (rooms, labs,
 equipment, and event bookings across multiple campus tenants). This repository
-is the **backend REST API only** — no frontend code, no UI frameworks.
+holds two packages:
+
+- **`src/`** — the backend REST API (§3–§4).
+- **`client/`** — the React single-page client that consumes it (§3a). It has
+  its own `package.json`; no UI code or UI dependency ever enters `src/` or the
+  root `package.json`.
 
 Every tenant-scoped resource is isolated by a `tenantId`. Assume multi-tenancy
 in every schema and query you write: a query that can read across tenants is a
@@ -36,19 +41,33 @@ bug, not a feature.
 | Lint / format  | `eslint`, `@eslint/js`, `typescript-eslint`, `prettier` |
 | Contract lint  | `@redocly/cli` via `npx` only, never installed          |
 
+Additionally, in `client/package.json` only (approved for Lab 5):
+
+| Purpose        | Package                                                                  |
+| -------------- | ------------------------------------------------------------------------ |
+| UI library     | `react`, `react-dom`, `@types/react`, `@types/react-dom`                 |
+| Build / dev    | `vite`, `@vitejs/plugin-react`                                           |
+| HTTP client    | `axios`                                                                  |
+| Language, lint | `typescript`, `@types/node`, `eslint`, `@eslint/js`, `typescript-eslint` |
+
+Styling is CSS Modules, built into Vite — no Tailwind, CSS-in-JS, or component
+library without approval.
+
 > **TypeScript version pin:** stay on `typescript@^5.9`. `typescript-eslint@8`
 > declares a peer range of `>=4.8.4 <6.1.0`, so TypeScript 7 breaks the
 > type-aware lint rules that enforce §4. Do not bump the major version until
-> `typescript-eslint` supports it.
+> `typescript-eslint` supports it. The pin applies to `client/` too, even when
+> a scaffolding template ships a newer TypeScript.
 
 ### Hard prohibitions
 
 - **No `.js`, `.mjs`, `.cjs`, or `.jsx` source files.** All application source
-  is `.ts` under `src/`. Compiled JavaScript belongs in `dist/` and is never
-  committed. The only exception is root-level tooling config that its own tool
-  requires in that format (`eslint.config.mjs`); never add application logic
-  there.
-- **Do not install or import any package not in the table above.** If a task
+  is `.ts` under `src/` or `.ts`/`.tsx` under `client/src/`. Compiled
+  JavaScript belongs in `dist/` (or `client/dist/`) and is never committed. The
+  only exception is tooling config that its own tool requires in that format
+  (`eslint.config.mjs`, `client/eslint.config.mjs`); never add application
+  logic there.
+- **Do not install or import any package not in the tables above.** If a task
   seems to need a new dependency (e.g. `zod`, `jsonwebtoken`, `helmet`,
   `winston`, `lodash`, `axios`, `jest`), **propose it first** with a one-line
   justification and wait for human approval. Then add it to that table in the
@@ -57,7 +76,8 @@ bug, not a feature.
   TypeORM, Sequelize, or the raw `mongodb` driver. Mongoose is the only
   database access layer.
 - **No global installs** and no edits to `package-lock.json` by hand.
-- **Do not commit** `.env`, `node_modules/`, or `dist/`.
+- **Do not commit** `.env`, `node_modules/`, or `dist/` — at the root or in
+  `client/`.
 
 ---
 
@@ -148,6 +168,57 @@ src/
 
 ---
 
+## 3a. Frontend Boundaries (`client/`)
+
+The client is a React + Vite single-page app. Data flows in one direction:
+
+```
+component → hook → src/api/campushubApi.ts → (Vite proxy) → /api/v1
+```
+
+```
+client/src/
+├── main.tsx / App.tsx    # Mounting and page composition only
+├── api/campushubApi.ts   # The ONLY module that imports axios or knows URLs
+├── components/           # Functional components + their .module.css
+├── hooks/                # Data-loading and workflow state (useX.ts)
+├── config/env.ts         # The ONLY reader of import.meta.env
+├── types/campushub.ts    # Mirror of docs/openapi.yaml schemas
+└── utils/                # Pure helpers (dates, validation, error text)
+```
+
+- **Component architecture:** functional components only, each with an
+  explicit exported `<Name>Props` interface and an explicit `ReactElement`
+  return type. No class components.
+- **State management:** standard hooks (`useState`, `useEffect`,
+  `useCallback`) or custom hooks in `hooks/`. **No API calls inside JSX** or in
+  render bodies: components call a hook, or a named handler that calls one
+  `campushubApi` function. No global store library without approval.
+- **Contract:** `campushubApi.ts` exposes one typed function per contract
+  operation, returns `types/campushub.ts` types, narrows response bodies with
+  type guards instead of casting, and throws `ApiError` (HTTP status + the
+  contract's `ErrorResponse.code`) on every failure. A contract change updates
+  the server mirror (`src/types/reservation.ts`) and this one together.
+- **Async UI state:** every async workflow exposes explicit `isLoading` (or
+  `isSubmitting`) and `error` state, clears the loading flag on success and
+  failure alike, and aborts in-flight loads (not mutations) on unmount.
+  Errors are rendered as an alert keyed off `ErrorResponse.code` (e.g.
+  `DOUBLE_BOOKING` → "This resource is already reserved for the selected time
+  window"), never parsed from message text, never only logged.
+- **Validation:** validate form input on the client before dispatching, but
+  treat the server as the authority — overlaps can only be detected there.
+- **Tenancy:** the client never sends a `tenantId`; the server resolves it.
+- **Styling:** CSS Modules (`Component.module.css` next to `Component.tsx`),
+  sharing the design tokens declared in `client/src/index.css`. No inline
+  `style` objects except for computed values.
+- **Naming exceptions:** components are `PascalCase.tsx`, hooks are
+  `useCamelCase.ts`, and `api/campushubApi.ts` keeps the course-mandated name
+  (Lab 5). Other client files follow the `kebab-case` rule above.
+- The §4 typing, async, and style rules apply unchanged; `client/tsconfig.*`
+  carry the same strict flags as the root.
+
+---
+
 ## 4. Coding Standards & Safety
 
 ### Typing
@@ -221,9 +292,15 @@ src/
   - `npm run lint` — must pass with zero errors.
   - `npm run build` — must succeed.
   - `npx @redocly/cli lint docs/openapi.yaml` — must pass with zero errors.
+- If you changed `client/`, also run from `client/`: `npm run typecheck`,
+  `npm run lint`, and `npm run build` — all must pass with zero errors.
 - If you changed a route, also verify it with `curl` against a running
   `npm run dev` and paste the actual response. The API needs MongoDB at
   `MONGODB_URI`: start it, then run `npm run seed` to reset the demo data.
+- If you changed a UI workflow, exercise it in a browser against the running
+  API (`npm run dev` at the root and in `client/`), including its error path:
+  a double booking must show the 409 alert, and a stopped API must show an
+  "unreachable" alert rather than a hanging spinner.
 - **Never report success you have not observed.** If a command fails, show the
   failure.
 
@@ -299,3 +376,6 @@ implemented')` in code presented as finished.
 | `res.status(500).json({ error })` in service | `throw new AppError(...)`; error middleware maps it |
 | Adding `zod` unprompted                      | Propose it, get approval, then add + document       |
 | Loosening `strict` to fix an error           | Fix the type, keep the flag                         |
+| `axios.get(...)` inside a component          | Component → hook → `campushubApi` function          |
+| Spinner with no `error` state                | `isLoading` + `error`, both cleared on every path   |
+| `catch { console.error(e) }` in a hook       | Store the message and render an `<Alert>`           |
