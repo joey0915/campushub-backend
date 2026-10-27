@@ -197,7 +197,6 @@ With the API running, start the client from `client/`:
 ```bash
 cd client
 npm install
-cp .env.example .env
 npm run dev   # http://localhost:5173, proxies /api to the backend
 ```
 

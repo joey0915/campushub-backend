@@ -16,12 +16,13 @@ npm run seed && npm run dev
 # terminal 2
 cd client
 npm install
-cp .env.example .env
 npm run dev   # http://localhost:5173
 ```
 
-The Vite dev server proxies `/api` to `CAMPUSHUB_API_ORIGIN`, so the browser
-sees a single origin and the API needs no CORS setup.
+The Vite dev server proxies `/api` to `CAMPUSHUB_API_ORIGIN`
+(default `http://localhost:3000`), so the browser sees a single origin and the
+API needs no CORS setup. No `.env` is needed; copy `.env.example` to `.env`
+only to override a default.
 
 ## Scripts
 
