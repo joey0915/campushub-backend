@@ -69,7 +69,7 @@ library without approval.
   logic there.
 - **Do not install or import any package not in the tables above.** If a task
   seems to need a new dependency (e.g. `zod`, `jsonwebtoken`, `helmet`,
-  `winston`, `lodash`, `axios`, `jest`), **propose it first** with a one-line
+  `winston`, `lodash`, `jest`), **propose it first** with a one-line
   justification and wait for human approval. Then add it to that table in the
   same commit.
 - **No alternate frameworks or ORMs** — no Nest, Fastify, Koa, Prisma,
@@ -279,9 +279,12 @@ client/src/
 - 2-space indentation, single quotes, semicolons, trailing commas, 100-column
   soft limit (Prettier is the source of truth).
 - Use ES module `import`/`export` syntax only — no `require()`.
-- Comments explain **why**, not **what**. No commented-out code, no
-  decorative banners, no TODOs without an owner.
-- Do not add a comment to every line. Match the density of surrounding code.
+- Comments explain **why**, not **what**, at the density of the surrounding
+  code. No commented-out code, no decorative banners, no TODOs without an
+  owner.
+- **Keep files small and single-purpose.** A component past ~150 lines, or a
+  helper pasted into a second file, is a signal to extract a hook, a
+  sub-component, or a shared module rather than to keep growing it.
 
 ---
 
@@ -363,19 +366,17 @@ implemented')` in code presented as finished.
 
 ---
 
-## 8. Quick Reference — Common Violations
+## 8. Context Hygiene
 
-| ❌ Violation                                 | ✅ Compliant                                        |
-| -------------------------------------------- | --------------------------------------------------- |
-| `Model.find()` in a controller               | Controller → service → model                        |
-| `(req, res) => { /* logic */ }` in a route   | Route → `controller.method`                         |
-| `catch (err: any)`                           | `catch (error: unknown)` + narrowing                |
-| `function f(x) { ... }`                      | `function f(x: string): Promise<Result> { ... }`    |
-| `process.env.PORT` in `app.ts`               | `env.port` from `src/config/env.ts`                 |
-| `async (req, res) => {}` route handler       | `asyncHandler(controller.method)`                   |
-| `res.status(500).json({ error })` in service | `throw new AppError(...)`; error middleware maps it |
-| Adding `zod` unprompted                      | Propose it, get approval, then add + document       |
-| Loosening `strict` to fix an error           | Fix the type, keep the flag                         |
-| `axios.get(...)` inside a component          | Component → hook → `campushubApi` function          |
-| Spinner with no `error` state                | `isLoading` + `error`, both cleared on every path   |
-| `catch { console.error(e) }` in a hook       | Store the message and render an `<Alert>`           |
+Keep the agent's context on source code, not on generated or historical text.
+
+- `.ignore` (read by ripgrep, so by Claude Code's Grep/Glob, and by `fd`/`ag`)
+  hides build output, dependencies, lockfiles, logs, source maps, diagrams, and
+  the `docs/lab*-steering-log.md` history from searches. `.claude/settings.json`
+  additionally denies reading `.env`, `node_modules/`, `dist/`, and lockfiles.
+  Add a pattern to both when a new generated artifact appears.
+- Start from this file and the layer you are changing; open the steering logs
+  or lockfiles only when the task is about them. Use `npm ls <pkg>` rather than
+  reading `package-lock.json`.
+- A rule lives in one section only. When a rule changes, edit it in place
+  rather than appending a corrected copy.
