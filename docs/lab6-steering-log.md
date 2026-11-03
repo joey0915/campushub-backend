@@ -24,11 +24,14 @@ byte-identical, and every check in AGENTS.md §5 passes.
 
 ### Ignore files
 
-- **`.ignore`** is read by ripgrep, so it applies to Claude Code's Grep and
-  Glob tools, and also to `fd` and `ag`. It hides `node_modules/`, `dist/`,
-  `build/`, `coverage/`, `*.map`, `*.tsbuildinfo`, `*.log`/`logs/`, both
-  `package-lock.json` files, the `docs/lab*-steering-log.md` history,
-  `docs/diagrams/`, and `client/public/`.
+- **`.ignore`** is read by ripgrep (`rg`), `fd`, and `ag`. Plain `grep -r`
+  and `find` do not read it, so AGENTS.md §8 tells agents to search with `rg`
+  (see Incident 3). It hides `node_modules/`, `dist/`, `build/`, `coverage/`,
+  `*.map`, `*.tsbuildinfo`, `*.log`/`logs/`, both `package-lock.json` files,
+  the `docs/lab*-steering-log.md` history, `docs/diagrams/`, and
+  `client/public/`.
+- **`.cursorignore`** holds the same patterns for Cursor, which does not read
+  `.ignore`.
 - **`.claude/settings.json`** turns that into a hard limit for Claude Code:
   `permissions.deny` blocks `Read` of `.env`, `node_modules/`, `dist/`, and the
   lockfiles. This session hit that rule itself. An `ls dist` used to check the
@@ -52,6 +55,29 @@ removes. Before, it also matched `docs/lab5-steering-log.md`, which still uses
 the hook's old name. An agent that read that log could "fix" code against an
 identifier that no longer exists. After the change, every match is a live
 source file or the client README.
+
+#### Agent query
+
+The lab asks for a real agent query, so one was run twice. Both runs used the
+same Explore subagent on the same model (Haiku) and the same prompt: "Where is
+`DOUBLE_BOOKING` produced on the server, and how does the client turn it into
+the user's message? Start with `rg -l DOUBLE_BOOKING`." The only difference
+was whether `.ignore` was present.
+
+| Measure                               | Without `.ignore`                                  | With `.ignore` |
+| ------------------------------------- | -------------------------------------------------- | -------------- |
+| Files the first search returned       | 11                                                 | 8              |
+| Historical or generated files in them | 3 (`lab4`/`lab6` logs, 57 KB sequence-diagram SVG) | 0              |
+| Subagent tokens                       | 36,100                                             | 34,534 (−4%)   |
+| Tool calls                            | 6                                                  | 6              |
+| Answer correct                        | yes                                                | yes            |
+
+The total token count barely moves. About 30k of every subagent run is fixed
+overhead: a run that made almost no tool calls still used 30,341 tokens.
+Taking that as the floor, the query-specific part fell from about 5.8k to
+about 4.2k tokens, roughly −27%. That figure is an estimate. The clearer
+result is the search output: with `.ignore`, every file it returned is source
+code, the contract, or a live README.
 
 ## Part 2: Bloat & redundancy audit
 
@@ -101,7 +127,10 @@ copies of a field reader became one `readField` that takes a `FieldFormat`
 **Prompt:** _"Extract reservation fetching and state out of `BookingForm.tsx`
 and `UserReservations.tsx` into `useReservations.ts`."_
 
-`client/src/hooks/useReservations.ts` replaces `useUserReservations.ts`. `App`
+The handout names `src/hooks/useReservations.ts`. This repository keeps the
+React app under `client/`, so the hook lives at
+`client/src/hooks/useReservations.ts`, beside the other client hooks. It
+replaces `useUserReservations.ts`. `App`
 calls it once per student and hands each component the part it uses:
 
 ```
@@ -155,6 +184,22 @@ cover `shared/`, and `client/tsconfig.app.json` includes `../shared`.
 - **Remediation:** The agent left the rule in place and checked the build
   through `npm run build`'s exit status. This confirms that the Part 1 rules
   are enforced, not just written down.
+
+### Incident 3: `.ignore` did nothing for the first agent query
+
+- **Initial agent output:** The first pair of agent runs (follow-up PR)
+  returned the same 11 files with and without `.ignore`, at 36,875 and 35,545
+  tokens. The lab logs and the diagram were still in the results.
+- **Root cause:** In this setup subagents have no dedicated Grep tool; they
+  search through Bash, and the prompt had not said which command to use.
+  Plain `grep -r` does not read `.ignore`, so the file had no effect. The
+  original log and AGENTS.md had claimed that `.ignore` "applies to Claude
+  Code's Grep and Glob". That was never verified, and in this setup it was
+  wrong.
+- **Remediation:** The wording in `.ignore`, AGENTS.md §8, and this log was
+  corrected. §8 now says to search with `rg` or `fd`, never `grep -r` or
+  `find`. The comparison was rerun with both runs told to use `rg` (results
+  above).
 
 ## Verification
 
