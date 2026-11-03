@@ -39,11 +39,12 @@ only to override a default.
 ```
 src/
 ├── api/campushubApi.ts         # Typed client: one function per contract operation
-├── types/campushub.ts          # Mirror of docs/openapi.yaml schemas
+├── types/campushub.ts          # Re-exports ../shared/contract.ts
 ├── config/env.ts               # The only reader of import.meta.env
 ├── hooks/
 │   ├── useResources.ts         # GET /resources?type= with loading/error/abort
-│   └── useUserReservations.ts  # GET /reservations/user/{id} + cancel workflow
+│   └── useReservations.ts      # A student's list + cancel + create, shared by
+│                               # BookingForm and UserReservations via App
 ├── components/
 │   ├── ResourceList.tsx        # Resource cards + ROOM/EQUIPMENT/LAB filter
 │   ├── ResourceCard.tsx
