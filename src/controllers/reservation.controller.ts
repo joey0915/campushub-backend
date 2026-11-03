@@ -24,37 +24,32 @@ const WRITABLE_FIELDS: ReadonlySet<string> = new Set([
 ]);
 const READ_ONLY_FIELDS: ReadonlySet<string> = new Set(['id', 'status']);
 
-function readIdentifier(source: Record<string, unknown>, field: string): string {
-  const value = source[field];
-  if (value === undefined) {
-    throw new ValidationError(`${field} is required.`);
-  }
-  if (typeof value !== 'string' || !USER_ID_PATTERN.test(value)) {
-    throw new ValidationError(`${field} must be 1-64 letters, digits, hyphens or underscores.`);
-  }
-  return value;
+/** One string format a field must match, and how a 400 message describes it. */
+interface FieldFormat {
+  readonly isValid: (value: string) => boolean;
+  readonly description: string;
 }
 
-function readObjectId(source: Record<string, unknown>, field: string): string {
-  const value = source[field];
-  if (value === undefined) {
-    throw new ValidationError(`${field} is required.`);
-  }
-  if (typeof value !== 'string' || !OBJECT_ID_PATTERN.test(value)) {
-    throw new ValidationError(`${field} must be a 24-character hexadecimal ObjectId.`);
-  }
-  return value;
-}
+const USER_ID: FieldFormat = {
+  isValid: (value) => USER_ID_PATTERN.test(value),
+  description: '1-64 letters, digits, hyphens or underscores',
+};
+const OBJECT_ID: FieldFormat = {
+  isValid: (value) => OBJECT_ID_PATTERN.test(value),
+  description: 'a 24-character hexadecimal ObjectId',
+};
+const DATE_TIME: FieldFormat = {
+  isValid: isIsoDateTime,
+  description: 'an ISO 8601 date-time with a UTC offset, e.g. 2026-10-01T10:00:00Z',
+};
 
-function readDateTime(source: Record<string, unknown>, field: string): string {
+function readField(source: Record<string, unknown>, field: string, format: FieldFormat): string {
   const value = source[field];
   if (value === undefined) {
     throw new ValidationError(`${field} is required.`);
   }
-  if (typeof value !== 'string' || !isIsoDateTime(value)) {
-    throw new ValidationError(
-      `${field} must be an ISO 8601 date-time with a UTC offset, e.g. 2026-10-01T10:00:00Z.`,
-    );
+  if (typeof value !== 'string' || !format.isValid(value)) {
+    throw new ValidationError(`${field} must be ${format.description}.`);
   }
   return value;
 }
@@ -73,10 +68,10 @@ function parseCreateReservationRequest(body: unknown): CreateReservationRequest 
   }
 
   const request: CreateReservationRequest = {
-    resourceId: readObjectId(body, 'resourceId'),
-    userId: readIdentifier(body, 'userId'),
-    startTime: readDateTime(body, 'startTime'),
-    endTime: readDateTime(body, 'endTime'),
+    resourceId: readField(body, 'resourceId', OBJECT_ID),
+    userId: readField(body, 'userId', USER_ID),
+    startTime: readField(body, 'startTime', DATE_TIME),
+    endTime: readField(body, 'endTime', DATE_TIME),
   };
   if (Date.parse(request.endTime) <= Date.parse(request.startTime)) {
     throw new ValidationError('endTime must be later than startTime.');
@@ -85,11 +80,11 @@ function parseCreateReservationRequest(body: unknown): CreateReservationRequest 
 }
 
 function parseListUserReservationsParams(params: Request['params']): ListUserReservationsParams {
-  return { userId: readIdentifier(params, 'userId') };
+  return { userId: readField(params, 'userId', USER_ID) };
 }
 
 function parseReservationIdParams(params: Request['params']): ReservationIdParams {
-  return { id: readObjectId(params, 'id') };
+  return { id: readField(params, 'id', OBJECT_ID) };
 }
 
 /**
