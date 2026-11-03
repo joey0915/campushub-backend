@@ -2,19 +2,19 @@
   "name": "campushub-backend",
   "version": "1.0.0",
   "description": "CampusHub \u2014 multi-tenant campus resource management system (backend REST API)",
-  "main": "dist/server.js",
+  "main": "dist/src/server.js",
   "type": "commonjs",
   "engines": {
     "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "nodemon --watch src --ext ts --exec \"ts-node src/server.ts\"",
+    "dev": "nodemon --watch src --watch shared --ext ts --exec \"ts-node src/server.ts\"",
     "build": "tsc --project tsconfig.json",
-    "start": "node dist/server.js",
+    "start": "node dist/src/server.js",
     "seed": "ts-node src/scripts/seed.ts",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "lint": "eslint src",
-    "lint:fix": "eslint src --fix",
+    "lint": "eslint src shared",
+    "lint:fix": "eslint src shared --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "verify": "npm run typecheck && npm run lint && npm run format:check"

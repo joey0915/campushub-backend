@@ -3,8 +3,8 @@ import type { Request, Response } from 'express';
 import { env } from '../config/env';
 import { reservationService } from '../services/reservation.service';
 import {
-  IDENTIFIER_PATTERN,
   OBJECT_ID_PATTERN,
+  USER_ID_PATTERN,
   type CreateReservationRequest,
   type CreateReservationResponses,
   type ListUserReservationsParams,
@@ -29,7 +29,7 @@ function readIdentifier(source: Record<string, unknown>, field: string): string 
   if (value === undefined) {
     throw new ValidationError(`${field} is required.`);
   }
-  if (typeof value !== 'string' || !IDENTIFIER_PATTERN.test(value)) {
+  if (typeof value !== 'string' || !USER_ID_PATTERN.test(value)) {
     throw new ValidationError(`${field} must be 1-64 letters, digits, hyphens or underscores.`);
   }
   return value;

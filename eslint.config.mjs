@@ -10,7 +10,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'shared/**/*.ts'],
     languageOptions: {
       parserOptions: {
         project: ['./tsconfig.json'],

@@ -1,6 +1,6 @@
 import { model, Schema, type Model } from 'mongoose';
 
-import { IDENTIFIER_PATTERN } from '../types/reservation';
+import { USER_ID_PATTERN } from '../types/reservation';
 
 /**
  * Persisted shape of a user (student or staff). Its public fields map
@@ -17,7 +17,7 @@ export interface UserEntity {
 
 const userSchema = new Schema<UserEntity>(
   {
-    _id: { type: String, required: true, match: IDENTIFIER_PATTERN },
+    _id: { type: String, required: true, match: USER_ID_PATTERN },
     tenantId: { type: String, required: true, immutable: true },
     name: { type: String, required: true, trim: true },
     email: {

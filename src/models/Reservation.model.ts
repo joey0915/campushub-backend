@@ -1,8 +1,8 @@
 import { Document, model, Schema, type Model, type Types } from 'mongoose';
 
 import {
-  IDENTIFIER_PATTERN,
   RESERVATION_STATUSES,
+  USER_ID_PATTERN,
   type ReservationStatus,
 } from '../types/reservation';
 
@@ -26,7 +26,7 @@ const reservationSchema = new Schema<ReservationEntity>(
   {
     tenantId: { type: String, required: true, immutable: true },
     resourceId: { type: Schema.Types.ObjectId, ref: 'Resource', required: true },
-    userId: { type: String, required: true, match: IDENTIFIER_PATTERN },
+    userId: { type: String, required: true, match: USER_ID_PATTERN },
     startTime: { type: Date, required: true },
     endTime: {
       type: Date,

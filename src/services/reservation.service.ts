@@ -2,15 +2,13 @@ import { Types } from 'mongoose';
 
 import { ReservationModel, type ReservationEntity } from '../models/Reservation.model';
 import { ResourceModel } from '../models/Resource.model';
-import type {
-  CreateReservationRequest,
-  Reservation,
-  ReservationStatus,
+import {
+  ACTIVE_RESERVATION_STATUSES,
+  type CreateReservationRequest,
+  type Reservation,
+  type ReservationStatus,
 } from '../types/reservation';
 import { ConflictError, NotFoundError, ValidationError } from '../utils/app-error';
-
-/** Statuses that hold a time slot: the only ones that block an overlapping request. */
-const ACTIVE_STATUSES: readonly ReservationStatus[] = ['PENDING', 'CONFIRMED'];
 
 /** The lifecycle: each target status and the statuses a reservation may reach it from. */
 const ALLOWED_TRANSITIONS = {
@@ -61,7 +59,7 @@ export const reservationService = {
     const overlap = await ReservationModel.exists({
       tenantId,
       resourceId,
-      status: { $in: ACTIVE_STATUSES },
+      status: { $in: ACTIVE_RESERVATION_STATUSES },
       startTime: { $lt: endTime },
       endTime: { $gt: startTime },
     }).exec();
@@ -92,7 +90,7 @@ export const reservationService = {
     return transitionStatus(tenantId, id, 'CONFIRMED');
   },
 
-  // Cancelling releases the slot at once: the overlap check only counts ACTIVE_STATUSES.
+  // Cancelling releases the slot at once: the overlap check only counts active statuses.
   cancelReservation(tenantId: string, id: string): Promise<Reservation> {
     return transitionStatus(tenantId, id, 'CANCELLED');
   },

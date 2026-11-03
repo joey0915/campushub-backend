@@ -1,14 +1,5 @@
 import { ResourceModel, type ResourceEntity } from '../models/Resource.model';
-import {
-  RESOURCE_TYPES,
-  type Resource,
-  type ResourceFilter,
-  type ResourceType,
-} from '../types/reservation';
-
-function isResourceType(value: string): value is ResourceType {
-  return (RESOURCE_TYPES as readonly string[]).includes(value);
-}
+import { isResourceType, type Resource, type ResourceFilter } from '../types/reservation';
 
 // Explicit field mapping is what keeps the internal tenantId out of responses.
 function toResource(entity: ResourceEntity): Resource {

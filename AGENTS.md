@@ -13,12 +13,14 @@ producing non-compliant code. Never silently relax a rule.
 
 **CampusHub** is a multi-tenant campus resource management system (rooms, labs,
 equipment, and event bookings across multiple campus tenants). This repository
-holds two packages:
+holds two packages and the contract types they share:
 
 - **`src/`** — the backend REST API (§3–§4).
 - **`client/`** — the React single-page client that consumes it (§3a). It has
   its own `package.json`; no UI code or UI dependency ever enters `src/` or the
   root `package.json`.
+- **`shared/contract.ts`** — the one declaration of the `docs/openapi.yaml`
+  schemas, imported by both sides (§3). Dependency-free: no imports at all.
 
 Every tenant-scoped resource is isolated by a `tenantId`. Assume multi-tenancy
 in every schema and query you write: a query that can read across tenants is a
@@ -149,12 +151,16 @@ src/
   same pull request.
 - Deliberate lint exceptions live in `.redocly.lint-ignore.yaml`, each with its
   reason. Never disable a Redocly rule globally to get a clean run.
-- `src/types/reservation.ts` mirrors the contract's schemas and operations
-  one-to-one, and `src/routes/reservation.routes.ts` wires every operation in
-  it, including `GET /resources`. These two filenames and the PascalCase model
-  files (`src/models/Resource.model.ts`, `Reservation.model.ts`,
-  `User.model.ts`) are fixed by the course (Labs 2–3), so they are the
-  exceptions to the naming rule below.
+- `shared/contract.ts` declares the contract's schemas (enums, patterns,
+  `Resource`, `Reservation`, `ErrorResponse`, …) exactly once. Never redeclare
+  one of them in `src/` or `client/`; import or re-export it instead.
+- `src/types/reservation.ts` re-exports those schemas and adds the server-only
+  operation types (params, responses by status code);
+  `src/routes/reservation.routes.ts` wires every operation in it, including
+  `GET /resources`. These two filenames, `src/middleware/errorHandler.ts`
+  (Lab 6), and the PascalCase model files (`src/models/Resource.model.ts`,
+  `Reservation.model.ts`, `User.model.ts`) are fixed by the course, so they
+  are the exceptions to the naming rule below.
 
 ### Naming conventions
 
@@ -183,7 +189,7 @@ client/src/
 ├── components/           # Functional components + their .module.css
 ├── hooks/                # Data-loading and workflow state (useX.ts)
 ├── config/env.ts         # The ONLY reader of import.meta.env
-├── types/campushub.ts    # Mirror of docs/openapi.yaml schemas
+├── types/campushub.ts    # Re-exports shared/contract.ts + client-only types
 └── utils/                # Pure helpers (dates, validation, error text)
 ```
 
@@ -197,8 +203,8 @@ client/src/
 - **Contract:** `campushubApi.ts` exposes one typed function per contract
   operation, returns `types/campushub.ts` types, narrows response bodies with
   type guards instead of casting, and throws `ApiError` (HTTP status + the
-  contract's `ErrorResponse.code`) on every failure. A contract change updates
-  the server mirror (`src/types/reservation.ts`) and this one together.
+  contract's `ErrorResponse.code`) on every failure. A schema change goes into
+  `shared/contract.ts`, so the server and the client cannot drift apart.
 - **Async UI state:** every async workflow exposes explicit `isLoading` (or
   `isSubmitting`) and `error` state, clears the loading flag on success and
   failure alike, and aborts in-flight loads (not mutations) on unmount.
