@@ -1,0 +1,24 @@
+# Agent context ignore list, read by ripgrep (Claude Code's Grep and Glob), fd,
+# and ag. Keeps agent searches on the source in src/, shared/, and client/src/.
+# See AGENTS.md §8.
+
+# Dependencies and build output
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+*.map
+
+# Lockfiles: thousands of lines no task needs; use `npm ls` instead
+package-lock.json
+
+# Logs
+logs/
+*.log
+
+# Historical lab logs and generated diagrams: documentation, not source
+docs/lab*-steering-log.md
+docs/diagrams/
+client/public/

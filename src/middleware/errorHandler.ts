@@ -1,7 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 
-import { env } from '../config/env';
-import type { ErrorResponseBody } from '../types/error.types';
+import type { ErrorResponse } from '../types/reservation';
 import { isAppError, ValidationError } from '../utils/app-error';
 
 /**
@@ -44,11 +43,6 @@ export function errorHandler(
     console.error('[error]', error instanceof Error ? error.stack : String(error));
   }
 
-  const body: ErrorResponseBody = { code, message };
-
-  if (env.nodeEnv === 'development' && !isKnown) {
-    console.error('[error] returning generic 500 to client for the error above.');
-  }
-
+  const body: ErrorResponse = { code, message };
   res.status(statusCode).json(body);
 }

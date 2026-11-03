@@ -9,7 +9,9 @@ Lab 2: executable specifications & OpenAPI contract design. Lab 3: architecture
 scaffolding & boundary enforcement. Lab 4: reservation lifecycle endpoints and
 the agent steering log in [docs/lab4-steering-log.md](docs/lab4-steering-log.md).
 Lab 5: the React client in [client/](client/README.md), with its error-handling
-audit in [docs/lab5-steering-log.md](docs/lab5-steering-log.md).
+audit in [docs/lab5-steering-log.md](docs/lab5-steering-log.md). Lab 6:
+refactoring and context optimization, logged in
+[docs/lab6-steering-log.md](docs/lab6-steering-log.md).
 
 ## Agent context
 
@@ -220,8 +222,11 @@ HTTP → routes → controllers → services → models → MongoDB
 docs/
 ├── openapi.yaml                    # The API contract (source of truth)
 ├── lab4-steering-log.md            # Lab 4 agent failure-loop log
-└── lab5-steering-log.md            # Lab 5 client log + error-handling audit
+├── lab5-steering-log.md            # Lab 5 client log + error-handling audit
+└── lab6-steering-log.md            # Lab 6 bloat audit + refactoring log
 client/                             # React + Vite client (see client/README.md)
+shared/
+└── contract.ts                     # Contract schemas, imported by src/ and client/
 src/
 ├── app.ts                          # Routers + middleware; DB connection shell
 ├── server.ts                       # Bootstrap: await DB, listen, shutdown
@@ -248,10 +253,9 @@ src/
 │   └── seed.ts                     # npm run seed: demo catalogue
 ├── middleware/
 │   ├── not-found.middleware.ts     # Unmatched routes → typed 404
-│   └── error-handler.middleware.ts # The single error formatter
+│   └── errorHandler.ts             # The single error formatter
 ├── types/
-│   ├── reservation.ts              # Mirror of the contract's schemas
-│   ├── error.types.ts              # ErrorResponse body
+│   ├── reservation.ts              # shared/contract.ts + per-operation types
 │   └── health.types.ts
 └── utils/
     ├── app-error.ts                # Typed domain errors

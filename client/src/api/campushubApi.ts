@@ -2,12 +2,11 @@ import axios, { type AxiosInstance } from 'axios';
 
 import { env } from '../config/env';
 import {
-  RESERVATION_STATUSES,
-  RESOURCE_TYPES,
-  type CreateReservationDTO,
+  isReservationStatus,
+  isResourceType,
+  type CreateReservationRequest,
   type ErrorResponse,
   type Reservation,
-  type ReservationStatus,
   type Resource,
   type ResourceType,
 } from '../types/campushub';
@@ -56,14 +55,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isErrorResponse(value: unknown): value is ErrorResponse {
   return isRecord(value) && typeof value.code === 'string' && typeof value.message === 'string';
-}
-
-function isResourceType(value: unknown): value is ResourceType {
-  return RESOURCE_TYPES.some((type) => type === value);
-}
-
-function isReservationStatus(value: unknown): value is ReservationStatus {
-  return RESERVATION_STATUSES.some((status) => status === value);
 }
 
 function isResource(value: unknown): value is Resource {
@@ -162,7 +153,7 @@ export async function fetchResources(
 
 /** `POST /reservations` — 201 with the new `PENDING` reservation, 409 `DOUBLE_BOOKING` on overlap. */
 export async function createReservation(
-  payload: CreateReservationDTO,
+  payload: CreateReservationRequest,
   options: RequestOptions = {},
 ): Promise<Reservation> {
   return request(

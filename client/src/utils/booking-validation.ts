@@ -1,4 +1,4 @@
-import { USER_ID_PATTERN, type CreateReservationDTO, type Resource } from '../types/campushub';
+import { USER_ID_PATTERN, type CreateReservationRequest, type Resource } from '../types/campushub';
 import { parseLocalInputValue } from './datetime';
 
 /** Raw values of the booking form, exactly as the inputs hold them. */
@@ -15,7 +15,7 @@ export interface BookingFieldErrors {
 }
 
 export type BookingValidationResult =
-  | { readonly ok: true; readonly payload: CreateReservationDTO }
+  | { readonly ok: true; readonly payload: CreateReservationRequest }
   | { readonly ok: false; readonly errors: BookingFieldErrors };
 
 /**

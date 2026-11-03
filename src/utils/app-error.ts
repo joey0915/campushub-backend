@@ -37,12 +37,6 @@ export class ConflictError extends AppError {
   }
 }
 
-export class ServiceUnavailableError extends AppError {
-  public constructor(message: string) {
-    super(message, 503, 'SERVICE_UNAVAILABLE');
-  }
-}
-
 export function isAppError(error: unknown): error is AppError {
   return error instanceof AppError;
 }

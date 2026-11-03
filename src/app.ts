@@ -2,7 +2,7 @@ import express, { type Application } from 'express';
 
 import { connectDatabase } from './config/database';
 import { env } from './config/env';
-import { errorHandler } from './middleware/error-handler.middleware';
+import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/not-found.middleware';
 import { apiRouter } from './routes';
 

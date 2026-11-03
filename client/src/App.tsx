@@ -4,6 +4,7 @@ import styles from './App.module.css';
 import { BookingForm } from './components/BookingForm';
 import { ResourceList } from './components/ResourceList';
 import { UserReservations } from './components/UserReservations';
+import { useReservations } from './hooks/useReservations';
 import { USER_ID_PATTERN, type Resource } from './types/campushub';
 
 // No authentication exists yet (see docs/openapi.yaml), so the student is chosen
@@ -14,7 +15,7 @@ export default function App(): ReactElement {
   const [userId, setUserId] = useState<string>(DEMO_USER_ID);
   const [userIdDraft, setUserIdDraft] = useState<string>(DEMO_USER_ID);
   const [selectedResource, setSelectedResource] = useState<Resource | null>(null);
-  const [reservationsVersion, setReservationsVersion] = useState<number>(0);
+  const reservations = useReservations(userId);
 
   const isDraftValid = USER_ID_PATTERN.test(userIdDraft);
 
@@ -27,10 +28,6 @@ export default function App(): ReactElement {
     if (isDraftValid) {
       setUserId(userIdDraft);
     }
-  };
-
-  const handleBooked = (): void => {
-    setReservationsVersion((version) => version + 1);
   };
 
   const handleClearResource = (): void => {
@@ -74,10 +71,10 @@ export default function App(): ReactElement {
           <BookingForm
             resource={selectedResource}
             userId={userId}
-            onBooked={handleBooked}
+            booking={reservations}
             onClearResource={handleClearResource}
           />
-          <UserReservations userId={userId} refreshKey={reservationsVersion} />
+          <UserReservations userId={userId} state={reservations} />
         </aside>
       </main>
     </div>

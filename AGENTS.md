@@ -13,12 +13,14 @@ producing non-compliant code. Never silently relax a rule.
 
 **CampusHub** is a multi-tenant campus resource management system (rooms, labs,
 equipment, and event bookings across multiple campus tenants). This repository
-holds two packages:
+holds two packages and the contract types they share:
 
 - **`src/`** — the backend REST API (§3–§4).
 - **`client/`** — the React single-page client that consumes it (§3a). It has
   its own `package.json`; no UI code or UI dependency ever enters `src/` or the
   root `package.json`.
+- **`shared/contract.ts`** — the one declaration of the `docs/openapi.yaml`
+  schemas, imported by both sides (§3). Dependency-free: no imports at all.
 
 Every tenant-scoped resource is isolated by a `tenantId`. Assume multi-tenancy
 in every schema and query you write: a query that can read across tenants is a
@@ -69,7 +71,7 @@ library without approval.
   logic there.
 - **Do not install or import any package not in the tables above.** If a task
   seems to need a new dependency (e.g. `zod`, `jsonwebtoken`, `helmet`,
-  `winston`, `lodash`, `axios`, `jest`), **propose it first** with a one-line
+  `winston`, `lodash`, `jest`), **propose it first** with a one-line
   justification and wait for human approval. Then add it to that table in the
   same commit.
 - **No alternate frameworks or ORMs** — no Nest, Fastify, Koa, Prisma,
@@ -149,12 +151,16 @@ src/
   same pull request.
 - Deliberate lint exceptions live in `.redocly.lint-ignore.yaml`, each with its
   reason. Never disable a Redocly rule globally to get a clean run.
-- `src/types/reservation.ts` mirrors the contract's schemas and operations
-  one-to-one, and `src/routes/reservation.routes.ts` wires every operation in
-  it, including `GET /resources`. These two filenames and the PascalCase model
-  files (`src/models/Resource.model.ts`, `Reservation.model.ts`,
-  `User.model.ts`) are fixed by the course (Labs 2–3), so they are the
-  exceptions to the naming rule below.
+- `shared/contract.ts` declares the contract's schemas (enums, patterns,
+  `Resource`, `Reservation`, `ErrorResponse`, …) exactly once. Never redeclare
+  one of them in `src/` or `client/`; import or re-export it instead.
+- `src/types/reservation.ts` re-exports those schemas and adds the server-only
+  operation types (params, responses by status code);
+  `src/routes/reservation.routes.ts` wires every operation in it, including
+  `GET /resources`. These two filenames, `src/middleware/errorHandler.ts`
+  (Lab 6), and the PascalCase model files (`src/models/Resource.model.ts`,
+  `Reservation.model.ts`, `User.model.ts`) are fixed by the course, so they
+  are the exceptions to the naming rule below.
 
 ### Naming conventions
 
@@ -183,7 +189,7 @@ client/src/
 ├── components/           # Functional components + their .module.css
 ├── hooks/                # Data-loading and workflow state (useX.ts)
 ├── config/env.ts         # The ONLY reader of import.meta.env
-├── types/campushub.ts    # Mirror of docs/openapi.yaml schemas
+├── types/campushub.ts    # Re-exports shared/contract.ts + client-only types
 └── utils/                # Pure helpers (dates, validation, error text)
 ```
 
@@ -197,8 +203,8 @@ client/src/
 - **Contract:** `campushubApi.ts` exposes one typed function per contract
   operation, returns `types/campushub.ts` types, narrows response bodies with
   type guards instead of casting, and throws `ApiError` (HTTP status + the
-  contract's `ErrorResponse.code`) on every failure. A contract change updates
-  the server mirror (`src/types/reservation.ts`) and this one together.
+  contract's `ErrorResponse.code`) on every failure. A schema change goes into
+  `shared/contract.ts`, so the server and the client cannot drift apart.
 - **Async UI state:** every async workflow exposes explicit `isLoading` (or
   `isSubmitting`) and `error` state, clears the loading flag on success and
   failure alike, and aborts in-flight loads (not mutations) on unmount.
@@ -279,9 +285,12 @@ client/src/
 - 2-space indentation, single quotes, semicolons, trailing commas, 100-column
   soft limit (Prettier is the source of truth).
 - Use ES module `import`/`export` syntax only — no `require()`.
-- Comments explain **why**, not **what**. No commented-out code, no
-  decorative banners, no TODOs without an owner.
-- Do not add a comment to every line. Match the density of surrounding code.
+- Comments explain **why**, not **what**, at the density of the surrounding
+  code. No commented-out code, no decorative banners, no TODOs without an
+  owner.
+- **Keep files small and single-purpose.** A component past ~150 lines, or a
+  helper pasted into a second file, is a signal to extract a hook, a
+  sub-component, or a shared module rather than to keep growing it.
 
 ---
 
@@ -363,19 +372,17 @@ implemented')` in code presented as finished.
 
 ---
 
-## 8. Quick Reference — Common Violations
+## 8. Context Hygiene
 
-| ❌ Violation                                 | ✅ Compliant                                        |
-| -------------------------------------------- | --------------------------------------------------- |
-| `Model.find()` in a controller               | Controller → service → model                        |
-| `(req, res) => { /* logic */ }` in a route   | Route → `controller.method`                         |
-| `catch (err: any)`                           | `catch (error: unknown)` + narrowing                |
-| `function f(x) { ... }`                      | `function f(x: string): Promise<Result> { ... }`    |
-| `process.env.PORT` in `app.ts`               | `env.port` from `src/config/env.ts`                 |
-| `async (req, res) => {}` route handler       | `asyncHandler(controller.method)`                   |
-| `res.status(500).json({ error })` in service | `throw new AppError(...)`; error middleware maps it |
-| Adding `zod` unprompted                      | Propose it, get approval, then add + document       |
-| Loosening `strict` to fix an error           | Fix the type, keep the flag                         |
-| `axios.get(...)` inside a component          | Component → hook → `campushubApi` function          |
-| Spinner with no `error` state                | `isLoading` + `error`, both cleared on every path   |
-| `catch { console.error(e) }` in a hook       | Store the message and render an `<Alert>`           |
+Keep the agent's context on source code, not on generated or historical text.
+
+- `.ignore` (read by ripgrep, so by Claude Code's Grep/Glob, and by `fd`/`ag`)
+  hides build output, dependencies, lockfiles, logs, source maps, diagrams, and
+  the `docs/lab*-steering-log.md` history from searches. `.claude/settings.json`
+  additionally denies reading `.env`, `node_modules/`, `dist/`, and lockfiles.
+  Add a pattern to both when a new generated artifact appears.
+- Start from this file and the layer you are changing; open the steering logs
+  or lockfiles only when the task is about them. Use `npm ls <pkg>` rather than
+  reading `package-lock.json`.
+- A rule lives in one section only. When a rule changes, edit it in place
+  rather than appending a corrected copy.

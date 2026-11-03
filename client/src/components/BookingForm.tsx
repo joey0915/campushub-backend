@@ -1,17 +1,17 @@
 import { useState, type ChangeEvent, type SubmitEvent, type ReactElement } from 'react';
 
-import { createReservation } from '../api/campushubApi';
-import type { Reservation, Resource } from '../types/campushub';
+import type { CreateReservationState } from '../hooks/useReservations';
+import type { Resource } from '../types/campushub';
 import { validateBooking, type BookingFieldErrors } from '../utils/booking-validation';
-import { addHours, formatSlot, nextFullHour, toLocalInputValue } from '../utils/datetime';
-import { describeApiError } from '../utils/error-messages';
+import { addHours, nextFullHour, toLocalInputValue } from '../utils/datetime';
 import { Alert } from './Alert';
 import styles from './BookingForm.module.css';
 
 export interface BookingFormProps {
   readonly resource: Resource | null;
   readonly userId: string;
-  readonly onBooked: (reservation: Reservation) => void;
+  /** From `useReservations`, which reloads the student's list after a booking. */
+  readonly booking: CreateReservationState;
   readonly onClearResource: () => void;
 }
 
@@ -32,55 +32,30 @@ function defaultSlot(): SlotInputs {
 export function BookingForm({
   resource,
   userId,
-  onBooked,
+  booking,
   onClearResource,
 }: BookingFormProps): ReactElement {
   const [slot, setSlot] = useState<SlotInputs>(defaultSlot);
   const [fieldErrors, setFieldErrors] = useState<BookingFieldErrors>({});
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const { isCreating, createError, createSuccess, dismissCreateError, dismissCreateSuccess } =
+    booking;
 
-  const handleStartChange = (event: ChangeEvent<HTMLInputElement>): void => {
-    setSlot((current) => ({ ...current, startTime: event.target.value }));
-    setFieldErrors(({ startTime: _cleared, ...rest }) => rest);
-  };
+  const handleSlotChange =
+    (field: keyof SlotInputs) =>
+    (event: ChangeEvent<HTMLInputElement>): void => {
+      setSlot((current) => ({ ...current, [field]: event.target.value }));
+      setFieldErrors(({ [field]: _cleared, ...rest }) => rest);
+    };
 
-  const handleEndChange = (event: ChangeEvent<HTMLInputElement>): void => {
-    setSlot((current) => ({ ...current, endTime: event.target.value }));
-    setFieldErrors(({ endTime: _cleared, ...rest }) => rest);
-  };
-
-  const submit = async (): Promise<void> => {
-    setSubmitError(null);
-    setSuccessMessage(null);
-
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>): void => {
+    event.preventDefault();
     const result = validateBooking(resource, userId, slot, new Date());
     if (!result.ok) {
       setFieldErrors(result.errors);
       return;
     }
     setFieldErrors({});
-    setIsSubmitting(true);
-    try {
-      const reservation = await createReservation(result.payload);
-      setSuccessMessage(
-        `Reserved ${resource?.name ?? 'the resource'} for ${formatSlot(reservation.startTime, reservation.endTime)}. Status: ${reservation.status}.`,
-      );
-      onBooked(reservation);
-    } catch (caught: unknown) {
-      setSubmitError(describeApiError(caught, 'create-reservation'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSubmit = (event: SubmitEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    submit().catch((caught: unknown) => {
-      setSubmitError(describeApiError(caught, 'create-reservation'));
-      setIsSubmitting(false);
-    });
+    booking.create(result.payload, resource?.name ?? 'the resource');
   };
 
   return (
@@ -117,9 +92,9 @@ export function BookingForm({
             <input
               type="datetime-local"
               value={slot.startTime}
-              onChange={handleStartChange}
+              onChange={handleSlotChange('startTime')}
               aria-invalid={fieldErrors.startTime !== undefined}
-              disabled={isSubmitting}
+              disabled={isCreating}
             />
             {fieldErrors.startTime !== undefined && (
               <span className={styles.fieldError}>{fieldErrors.startTime}</span>
@@ -130,9 +105,9 @@ export function BookingForm({
             <input
               type="datetime-local"
               value={slot.endTime}
-              onChange={handleEndChange}
+              onChange={handleSlotChange('endTime')}
               aria-invalid={fieldErrors.endTime !== undefined}
-              disabled={isSubmitting}
+              disabled={isCreating}
             />
             {fieldErrors.endTime !== undefined && (
               <span className={styles.fieldError}>{fieldErrors.endTime}</span>
@@ -140,28 +115,20 @@ export function BookingForm({
           </label>
         </div>
 
-        {submitError !== null && (
+        {createError !== null && (
           <Alert
             tone="error"
             title="Reservation not created"
-            message={submitError}
-            onDismiss={(): void => {
-              setSubmitError(null);
-            }}
+            message={createError}
+            onDismiss={dismissCreateError}
           />
         )}
-        {successMessage !== null && (
-          <Alert
-            tone="success"
-            message={successMessage}
-            onDismiss={(): void => {
-              setSuccessMessage(null);
-            }}
-          />
+        {createSuccess !== null && (
+          <Alert tone="success" message={createSuccess} onDismiss={dismissCreateSuccess} />
         )}
 
-        <button type="submit" className={styles.submit} disabled={isSubmitting}>
-          {isSubmitting ? 'Reserving…' : 'Reserve'}
+        <button type="submit" className={styles.submit} disabled={isCreating}>
+          {isCreating ? 'Reserving…' : 'Reserve'}
         </button>
       </form>
     </section>

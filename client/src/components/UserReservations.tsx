@@ -1,17 +1,16 @@
 import { useState, type ReactElement } from 'react';
 
-import { useUserReservations } from '../hooks/useUserReservations';
+import type { ReservationListState } from '../hooks/useReservations';
 import { ACTIVE_RESERVATION_STATUSES, type Reservation } from '../types/campushub';
 import { cx } from '../utils/class-names';
 import { formatSlot } from '../utils/datetime';
-import { describeApiError } from '../utils/error-messages';
 import { Alert } from './Alert';
 import styles from './UserReservations.module.css';
 
 export interface UserReservationsProps {
   readonly userId: string;
-  /** Bumped by the parent after a booking so this list refetches. */
-  readonly refreshKey: number;
+  /** From `useReservations`, shared with the booking form so a booking reloads it. */
+  readonly state: ReservationListState;
 }
 
 function isActive(reservation: Reservation): boolean {
@@ -19,7 +18,7 @@ function isActive(reservation: Reservation): boolean {
 }
 
 /** "My bookings": the student's active reservations, each cancellable, plus their history. */
-export function UserReservations({ userId, refreshKey }: UserReservationsProps): ReactElement {
+export function UserReservations({ userId, state }: UserReservationsProps): ReactElement {
   const {
     reservations,
     resourceNames,
@@ -30,18 +29,12 @@ export function UserReservations({ userId, refreshKey }: UserReservationsProps):
     dismissCancelError,
     reload,
     cancel,
-  } = useUserReservations(userId, refreshKey);
+  } = state;
   const [showHistory, setShowHistory] = useState<boolean>(false);
 
   const active = reservations.filter(isActive);
   const cancelled = reservations.filter((reservation) => !isActive(reservation));
   const isFirstLoad = isLoading && reservations.length === 0;
-
-  const handleCancel = (reservation: Reservation): void => {
-    cancel(reservation).catch((caught: unknown) => {
-      console.error(describeApiError(caught, 'cancel'));
-    });
-  };
 
   const renderRow = (reservation: Reservation): ReactElement => {
     const isCancelling = cancellingIds.has(reservation.id);
@@ -62,7 +55,7 @@ export function UserReservations({ userId, refreshKey }: UserReservationsProps):
             className={styles.cancel}
             disabled={isCancelling}
             onClick={(): void => {
-              handleCancel(reservation);
+              cancel(reservation);
             }}
           >
             {isCancelling ? 'Cancelling…' : 'Cancel reservation'}
