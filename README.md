@@ -20,6 +20,12 @@ All AI-agent behavior in this repository is governed by [AGENTS.md](AGENTS.md)
 Claude Code, Cursor, and Copilot are all bound by the same rules. Read
 `AGENTS.md` before contributing — human or agent.
 
+To keep agent context on source code, [.ignore](.ignore) (ripgrep, so Claude
+Code's search tools) and [.cursorignore](.cursorignore) (Cursor) hide build
+output, dependencies, lockfiles, logs, and the historical lab logs, and
+[.claude/settings.json](.claude/settings.json) denies Claude Code reads of
+`.env`, `node_modules/`, `dist/`, and lockfiles (AGENTS.md §8).
+
 ## Requirements
 
 - Node.js >= 20 (developed on v23.7.0)

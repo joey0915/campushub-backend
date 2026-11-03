@@ -376,11 +376,14 @@ implemented')` in code presented as finished.
 
 Keep the agent's context on source code, not on generated or historical text.
 
-- `.ignore` (read by ripgrep, so by Claude Code's Grep/Glob, and by `fd`/`ag`)
-  hides build output, dependencies, lockfiles, logs, source maps, diagrams, and
-  the `docs/lab*-steering-log.md` history from searches. `.claude/settings.json`
-  additionally denies reading `.env`, `node_modules/`, `dist/`, and lockfiles.
-  Add a pattern to both when a new generated artifact appears.
+- **Search with `rg` (or `fd`), never `grep -r` or `find`.** Only those read
+  `.ignore`, which hides build output, dependencies, lockfiles, logs, source
+  maps, diagrams, and the `docs/lab*-steering-log.md` history from searches.
+  `.cursorignore` holds
+  the same patterns for Cursor, which does not read `.ignore`.
+  `.claude/settings.json` additionally denies reading `.env`, `node_modules/`,
+  `dist/`, and lockfiles. Add a pattern to all three when a new generated
+  artifact appears.
 - Start from this file and the layer you are changing; open the steering logs
   or lockfiles only when the task is about them. Use `npm ls <pkg>` rather than
   reading `package-lock.json`.

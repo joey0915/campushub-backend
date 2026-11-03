@@ -1,5 +1,6 @@
-# Agent context ignore list, read by ripgrep (Claude Code's Grep and Glob), fd,
-# and ag. Keeps agent searches on the source in src/, shared/, and client/src/.
+# Agent context ignore list, read by ripgrep (rg), fd, and ag; plain grep -r and
+# find ignore it, so agents search with rg. Keeps agent searches on the source in
+# src/, shared/, and client/src/.
 # See AGENTS.md §8.
 
 # Dependencies and build output
