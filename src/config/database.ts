@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 import mongoose from 'mongoose';
 
 /**
@@ -23,7 +25,10 @@ export function getDatabaseState(): DatabaseState {
 
 export async function connectDatabase(uri: string): Promise<void> {
   mongoose.set('strictQuery', true);
-  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+  // mongodb >= 7.6 loads `os` through a dynamic import() that Jest's CommonJS sandbox rejects,
+  // and then sends an empty handshake the server refuses (NODE-7832). Passing it explicitly
+  // takes the same value in production and lets the test suite connect.
+  await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000, runtimeAdapters: { os } });
 }
 
 export async function disconnectDatabase(): Promise<void> {
