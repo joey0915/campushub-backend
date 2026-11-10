@@ -1,6 +1,7 @@
 import mongoose, { Types } from 'mongoose';
 
 import { ReservationModel } from '../../models/Reservation.model';
+import { ResourceModel } from '../../models/Resource.model';
 import { seedReservation, seedResource, shiftMs } from '../../test/fixtures';
 import type { CreateReservationRequest } from '../../types/reservation';
 import { ConflictError, NotFoundError, ValidationError } from '../../utils/app-error';
@@ -176,24 +177,76 @@ describe('reservationService.createReservation', () => {
       expect(results.every((result) => result.status === 'fulfilled')).toBe(true);
     });
 
-    // Known gap, documented in the service: the overlap check and the insert are two queries,
-    // so simultaneous requests can all pass the check. `it.failing` keeps the suite green
-    // while the race exists and turns red the day it is closed, so it cannot be forgotten.
-    it.failing(
-      'accepts exactly one of five simultaneous identical requests',
-      async (): Promise<void> => {
-        for (let round = 0; round < 10; round += 1) {
-          const resource = await seedResource(TENANT);
-          const results = await Promise.allSettled(
-            Array.from({ length: 5 }, () =>
-              reservationService.createReservation(TENANT, requestFor(resource._id, START, END)),
-            ),
-          );
+    it('accepts exactly one of five simultaneous identical requests', async (): Promise<void> => {
+      for (let round = 0; round < 10; round += 1) {
+        const resource = await seedResource(TENANT);
+        const results = await Promise.allSettled(
+          Array.from({ length: 5 }, () =>
+            reservationService.createReservation(TENANT, requestFor(resource._id, START, END)),
+          ),
+        );
 
-          expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
-        }
-      },
-    );
+        const rejected = results.filter((result) => result.status === 'rejected');
+        expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+        expect(rejected.every((result) => result.reason instanceof ConflictError)).toBe(true);
+        expect(await ReservationModel.countDocuments({ resourceId: resource._id }).exec()).toBe(1);
+      }
+    });
+
+    it('commits every simultaneous non-overlapping booking of one resource', async (): Promise<void> => {
+      const resource = await seedResource(TENANT);
+      const hours = [0, 1, 2, 3, 4, 5];
+
+      const results = await Promise.allSettled(
+        hours.map((hour) =>
+          reservationService.createReservation(
+            TENANT,
+            requestFor(
+              resource._id,
+              shiftMs(START, hour * 3_600_000),
+              shiftMs(END, hour * 3_600_000),
+            ),
+          ),
+        ),
+      );
+
+      expect(results.every((result) => result.status === 'fulfilled')).toBe(true);
+      expect(await ReservationModel.countDocuments({}).exec()).toBe(hours.length);
+    });
+
+    it('books a resource stored before the booking counter existed', async (): Promise<void> => {
+      const resource = await seedResource(TENANT);
+      await ResourceModel.collection.updateOne(
+        { _id: resource._id },
+        { $unset: { bookingVersion: '' } },
+      );
+
+      await expect(
+        reservationService.createReservation(TENANT, requestFor(resource._id, START, END)),
+      ).resolves.toMatchObject({ status: 'PENDING' });
+      const stored = await ResourceModel.findById(resource._id).lean().exec();
+      expect(stored?.bookingVersion).toBe(1);
+    });
+
+    it('gives up after losing every race and leaves no reservation behind', async (): Promise<void> => {
+      const resource = await seedResource(TENANT);
+      const lostRace = {
+        acknowledged: true,
+        matchedCount: 0,
+        modifiedCount: 0,
+        upsertedCount: 0,
+        upsertedId: null,
+      };
+      const updateOne = jest.spyOn(ResourceModel, 'updateOne').mockReturnValue({
+        exec: (): Promise<typeof lostRace> => Promise.resolve(lostRace),
+      } as unknown as ReturnType<typeof ResourceModel.updateOne>);
+
+      await expect(
+        reservationService.createReservation(TENANT, requestFor(resource._id, START, END)),
+      ).rejects.toThrow(/lost 25 concurrent races/);
+      expect(updateOne).toHaveBeenCalledTimes(25);
+      expect(await countReservations()).toBe(0);
+    });
   });
 
   describe('invalid input reaching the service', () => {

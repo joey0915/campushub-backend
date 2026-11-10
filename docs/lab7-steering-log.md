@@ -3,7 +3,7 @@
 What one agent session (Claude Code, governed by [AGENTS.md](../AGENTS.md))
 built for Lab 7: a Jest + Supertest suite on an in-memory MongoDB, adversarial
 edge-case and fuzz tests, and a coverage gate. The tests found one real defect,
-which is pinned rather than hidden.
+a double-booking race, which was then fixed in its own commit.
 
 ## Part 1: Test environment
 
@@ -81,13 +81,43 @@ the out-of-enum `type` short circuit, and the `degraded` health branch.
 
 Five simultaneous identical `createReservation` calls produced 2–5 reservations
 for the same slot in each of 10 probe rounds. The overlap check and the insert
-are two queries, so concurrent requests can all pass the check. The service's
-own comment admits this gap. The test
-`accepts exactly one of five simultaneous identical requests` encodes the
-correct behaviour as `it.failing`: it stays green while the race exists and
-turns red once it is fixed. The fix is a business-logic change (a transaction
-on a replica set, or a per-resource lock), so it is left to a separate
-`fix(...)` change rather than mixed into this test commit (AGENTS.md §6).
+were two queries, so concurrent requests could all pass the check. The test
+`accepts exactly one of five simultaneous identical requests` first pinned the
+correct behaviour as `it.failing`, in the test commit.
+
+**Fix (separate `fix(reservation)` commit).** Each resource now carries an
+internal `bookingVersion` counter, which is never serialized. A booking:
+
+1. reads the resource and its version;
+2. checks for an overlap;
+3. inserts the reservation;
+4. advances the version only if it still holds the value read in step 1.
+
+The loser of that compare-and-set deletes its own insert and retries. Because
+the insert comes before the version bump, any booking that reads the new
+version already sees the winner in its overlap check. So exactly one of several
+concurrent bookings of a slot commits. Bookings of non-overlapping slots retry
+and still succeed. Retries are capped at 25 rounds; running out means the
+resource is under sustained contention, which becomes a 500 because the
+contract has no 409 code for it.
+
+Rejected alternatives:
+
+- A MongoDB transaction needs a replica set, but local development (README)
+  runs a standalone `mongod`.
+- Insert-then-recheck without a counter can make both racers delete
+  themselves, so neither booking succeeds.
+
+`it.failing` became a normal `it`. New tests cover:
+
+- six simultaneous non-overlapping bookings of one resource all committing;
+- a resource stored before the counter existed;
+- running out of retries, which leaves no reservation behind;
+- five simultaneous HTTP POSTs giving one 201 and four 409s.
+
+The suite ran five times in a row with no failures. Against `npm run dev` on a
+standalone `mongod`, five parallel `curl` POSTs returned one `201` and four
+`409 DOUBLE_BOOKING`, and the user's listing held a single reservation.
 
 ## Part 3: HTTP integration — `src/routes/__tests__/`
 
@@ -118,7 +148,7 @@ File                        | % Stmts | % Branch | % Funcs | % Lines
 All files                   |     100 |      100 |     100 |     100
  controllers                |     100 |      100 |     100 |     100
  services                   |     100 |      100 |     100 |     100
-Tests: 111 passed, 111 total (6 suites)
+Tests: 115 passed, 115 total (6 suites)
 ```
 
 The first coverage run reached 100% statements but 97.9% branches; only

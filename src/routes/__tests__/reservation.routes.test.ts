@@ -90,6 +90,18 @@ describe('POST /reservations', () => {
     expect([first.status, second.status]).toEqual([201, 409]);
   });
 
+  it('returns one 201 and 409s for simultaneous identical requests', async (): Promise<void> => {
+    const resource = await seedResource(TENANT);
+    const body = validBody(resource._id);
+
+    const responses = await Promise.all(
+      Array.from({ length: 5 }, () => request(app).post(`${API}/reservations`).send(body)),
+    );
+
+    expect(responses.map((res) => res.status).sort()).toEqual([201, 409, 409, 409, 409]);
+    expect(await ReservationModel.countDocuments({}).exec()).toBe(1);
+  });
+
   describe('400 VALIDATION_ERROR on a malformed payload', () => {
     it.each(['resourceId', 'userId', 'startTime', 'endTime'])(
       'when %s is missing',

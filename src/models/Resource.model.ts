@@ -15,6 +15,12 @@ export interface ResourceEntity {
   type: ResourceType;
   location: string;
   isAvailable: boolean;
+  /**
+   * Internal optimistic-concurrency counter, bumped by every successful booking so two
+   * concurrent bookings of this resource cannot both commit. Never serialized; absent on
+   * documents written before it existed.
+   */
+  bookingVersion?: number;
 }
 
 const resourceSchema = new Schema<ResourceEntity>(
@@ -24,6 +30,7 @@ const resourceSchema = new Schema<ResourceEntity>(
     type: { type: String, required: true, enum: RESOURCE_TYPES },
     location: { type: String, required: true, trim: true },
     isAvailable: { type: Boolean, required: true, default: true },
+    bookingVersion: { type: Number, min: 0, default: 0 },
   },
   // Reject unknown fields rather than drop them, like the contract's additionalProperties: false.
   { strict: 'throw', versionKey: false },

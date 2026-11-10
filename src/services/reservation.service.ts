@@ -1,7 +1,7 @@
 import { Types } from 'mongoose';
 
 import { ReservationModel, type ReservationEntity } from '../models/Reservation.model';
-import { ResourceModel } from '../models/Resource.model';
+import { ResourceModel, type ResourceEntity } from '../models/Resource.model';
 import {
   ACTIVE_RESERVATION_STATUSES,
   type CreateReservationRequest,
@@ -16,6 +16,16 @@ const ALLOWED_TRANSITIONS = {
   CANCELLED: ['PENDING', 'CONFIRMED'],
 } as const satisfies Readonly<Partial<Record<ReservationStatus, readonly ReservationStatus[]>>>;
 type TargetStatus = keyof typeof ALLOWED_TRANSITIONS;
+
+/** How often one booking retries after losing a race to a concurrent booking of its resource. */
+const MAX_BOOKING_ATTEMPTS = 25;
+
+/** The requested slot, already converted to the types the models store. */
+interface SlotRequest {
+  readonly resourceId: Types.ObjectId;
+  readonly startTime: Date;
+  readonly endTime: Date;
+}
 
 // Explicit field mapping is what keeps the internal tenantId out of responses.
 function toReservation(entity: ReservationEntity): Reservation {
@@ -44,38 +54,17 @@ export const reservationService = {
     const startTime = new Date(request.startTime);
     const endTime = new Date(request.endTime);
 
-    // The lab defines only 201/400/409/500 for this operation, so a reference to
-    // a resource that does not exist is an invalid field (400), not a 404.
-    const resourceExists = await ResourceModel.exists({ _id: resourceId, tenantId }).exec();
-    if (resourceExists === null) {
-      throw new ValidationError(
-        `resourceId ${request.resourceId} does not refer to an existing resource.`,
-      );
+    for (let attempt = 1; attempt <= MAX_BOOKING_ATTEMPTS; attempt += 1) {
+      const created = await tryBookSlot(tenantId, request, { resourceId, startTime, endTime });
+      if (created !== undefined) {
+        return created;
+      }
     }
-
-    // Half-open intervals: a slot may start exactly when another ends. Check and
-    // insert are two queries, so two simultaneous requests could both pass the
-    // check; closing that gap needs a transaction (a replica set) or a lock.
-    const overlap = await ReservationModel.exists({
-      tenantId,
-      resourceId,
-      status: { $in: ACTIVE_RESERVATION_STATUSES },
-      startTime: { $lt: endTime },
-      endTime: { $gt: startTime },
-    }).exec();
-    if (overlap !== null) {
-      throw new ConflictError('Resource is already reserved for this time slot.', 'DOUBLE_BOOKING');
-    }
-
-    const created = await ReservationModel.create({
-      tenantId,
-      resourceId,
-      userId: request.userId,
-      startTime,
-      endTime,
-      status: 'PENDING',
-    });
-    return toReservation(created.toObject<ReservationEntity>());
+    // Every lost attempt means another booking of this resource committed, so this is only
+    // reachable under sustained contention; the contract has no 409 code for it.
+    throw new Error(
+      `Booking resource ${request.resourceId} lost ${String(MAX_BOOKING_ATTEMPTS)} concurrent races.`,
+    );
   },
 
   async listReservationsForUser(tenantId: string, userId: string): Promise<Reservation[]> {
@@ -130,4 +119,66 @@ async function transitionStatus(
     `Reservation is ${current.status} and cannot become ${target}.`,
     'INVALID_STATUS_TRANSITION',
   );
+}
+
+/**
+ * One optimistic booking attempt: read the resource's booking version, check for an
+ * overlap, insert, then advance the version only if it is still the one read. The insert
+ * comes before the version bump, so any booking that reads the bumped version already sees
+ * this reservation in its overlap check; a booking that read the old version loses the
+ * bump, removes its own insert, and retries. Exactly one of several concurrent bookings of
+ * a slot therefore commits, without the transactions a standalone MongoDB cannot offer.
+ * Returns undefined when this attempt lost the race and must be retried.
+ */
+async function tryBookSlot(
+  tenantId: string,
+  request: CreateReservationRequest,
+  slot: SlotRequest,
+): Promise<Reservation | undefined> {
+  const { resourceId, startTime, endTime } = slot;
+
+  // The lab defines only 201/400/409/500 for this operation, so a reference to
+  // a resource that does not exist is an invalid field (400), not a 404.
+  const resource = await ResourceModel.findOne({ _id: resourceId, tenantId })
+    .select({ bookingVersion: 1 })
+    .lean<Pick<ResourceEntity, 'bookingVersion'>>()
+    .exec();
+  if (resource === null) {
+    throw new ValidationError(
+      `resourceId ${request.resourceId} does not refer to an existing resource.`,
+    );
+  }
+  // `null` also matches a resource stored before the counter existed.
+  const version = resource.bookingVersion ?? null;
+
+  // Half-open intervals: a slot may start exactly when another ends.
+  const overlap = await ReservationModel.exists({
+    tenantId,
+    resourceId,
+    status: { $in: ACTIVE_RESERVATION_STATUSES },
+    startTime: { $lt: endTime },
+    endTime: { $gt: startTime },
+  }).exec();
+  if (overlap !== null) {
+    throw new ConflictError('Resource is already reserved for this time slot.', 'DOUBLE_BOOKING');
+  }
+
+  const created = await ReservationModel.create({
+    tenantId,
+    resourceId,
+    userId: request.userId,
+    startTime,
+    endTime,
+    status: 'PENDING',
+  });
+  const won = await ResourceModel.updateOne(
+    { _id: resourceId, tenantId, bookingVersion: version },
+    { $inc: { bookingVersion: 1 } },
+  ).exec();
+  if (won.modifiedCount === 1) {
+    return toReservation(created.toObject<ReservationEntity>());
+  }
+
+  await ReservationModel.deleteOne({ _id: created._id, tenantId }).exec();
+  return undefined;
 }
