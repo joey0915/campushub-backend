@@ -52,6 +52,14 @@ Additionally, in `client/package.json` only (approved for Lab 5):
 | HTTP client    | `axios`                                                                  |
 | Language, lint | `typescript`, `@types/node`, `eslint`, `@eslint/js`, `typescript-eslint` |
 
+Additionally, as root `devDependencies` only (approved for Lab 7):
+
+| Purpose            | Package                              |
+| ------------------ | ------------------------------------ |
+| Test runner        | `jest`, `ts-jest`, `@types/jest`     |
+| HTTP integration   | `supertest`, `@types/supertest`      |
+| In-memory database | `mongodb-memory-server` (tests only) |
+
 Styling is CSS Modules, built into Vite — no Tailwind, CSS-in-JS, or component
 library without approval.
 
@@ -103,6 +111,7 @@ src/
 ├── models/               # Mongoose schemas + their interfaces ONLY
 ├── middleware/           # Cross-cutting Express middleware (errors, auth, …)
 ├── scripts/              # One-off CLI jobs, e.g. `npm run seed`
+├── test/                 # Jest harness: in-memory MongoDB, fixtures, response guards
 ├── types/                # Shared interfaces, DTOs, and type declarations
 └── utils/                # Small, pure, framework-agnostic helpers
 ```
@@ -161,6 +170,18 @@ src/
   (Lab 6), and the PascalCase model files (`src/models/Resource.model.ts`,
   `Reservation.model.ts`, `User.model.ts`) are fixed by the course, so they
   are the exceptions to the naming rule below.
+
+### Tests
+
+- Tests sit next to the layer they cover, in `__tests__/<file>.test.ts`
+  (`src/services/__tests__/`, `src/routes/__tests__/`), and run against the
+  in-memory MongoDB that `src/test/` starts; never against `MONGODB_URI`'s
+  real server. `tsconfig.build.json` keeps tests out of `dist/`.
+- Seed data through `src/test/fixtures.ts` and narrow Supertest's `any` body
+  with `src/test/contract-guards.ts`; the §4 rules apply to tests unchanged.
+- A known, not-yet-fixed defect is pinned with `it.failing` and a comment
+  naming the gap, so the suite turns red when it is fixed — never deleted or
+  skipped.
 
 ### Naming conventions
 
@@ -269,7 +290,9 @@ client/src/
 ### Safety & multi-tenancy
 
 - Read environment variables **only** through the typed config module
-  (`src/config/env.ts`). `process.env` is not referenced anywhere else.
+  (`src/config/env.ts`). `process.env` is not referenced anywhere else, except
+  that the Jest harness (`src/test/global-setup.ts`) writes `MONGODB_URI`
+  before `env.ts` loads.
 - Never hard-code secrets, connection strings, tokens, or ports in source.
 - Never log secrets, tokens, or full request bodies.
 - Every tenant-scoped query filters on `tenantId`. Never trust a `tenantId`
@@ -300,6 +323,7 @@ client/src/
   - `npm run typecheck` — must pass with zero errors.
   - `npm run lint` — must pass with zero errors.
   - `npm run build` — must succeed.
+  - `npx jest --coverage` — every suite passes and the 80% threshold holds.
   - `npx @redocly/cli lint docs/openapi.yaml` — must pass with zero errors.
 - If you changed `client/`, also run from `client/`: `npm run typecheck`,
   `npm run lint`, and `npm run build` — all must pass with zero errors.

@@ -1,0 +1,9 @@
+{
+  // `npm run build`: the application only. Tests and their Jest globals are
+  // type-checked and linted through tsconfig.json but never emitted to dist/.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "exclude": ["node_modules", "dist", "src/test/**", "src/**/__tests__/**"]
+}
