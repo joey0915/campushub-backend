@@ -58,16 +58,18 @@ deletes its reservations, so run it again for a clean test run.
 
 ## Scripts
 
-| Command             | Purpose                                           |
-| ------------------- | ------------------------------------------------- |
-| `npm run dev`       | Start the API with hot reload (nodemon + ts-node) |
-| `npm run build`     | Compile TypeScript to `dist/`                     |
-| `npm start`         | Run the compiled build                            |
-| `npm run seed`      | Reset MongoDB to the demo catalogue               |
-| `npm run typecheck` | Type-check with no emit                           |
-| `npm run lint`      | ESLint, including type-aware rules                |
-| `npm run format`    | Apply Prettier                                    |
-| `npm run verify`    | typecheck + lint + format check (run before a PR) |
+| Command                 | Purpose                                           |
+| ----------------------- | ------------------------------------------------- |
+| `npm run dev`           | Start the API with hot reload (nodemon + ts-node) |
+| `npm run build`         | Compile TypeScript to `dist/`                     |
+| `npm start`             | Run the compiled build                            |
+| `npm run seed`          | Reset MongoDB to the demo catalogue               |
+| `npm run typecheck`     | Type-check with no emit                           |
+| `npm test`              | Jest suites against an in-memory MongoDB          |
+| `npm run test:coverage` | `npm test` plus the 80% coverage gate             |
+| `npm run lint`          | ESLint, including type-aware rules                |
+| `npm run format`        | Apply Prettier                                    |
+| `npm run verify`        | typecheck + lint + format check (run before a PR) |
 
 ## Health check
 
@@ -214,6 +216,20 @@ loading and error states: a double booking shows the 409 `DOUBLE_BOOKING`
 alert, and a stopped API shows an "unreachable" alert with Retry. See
 [client/README.md](client/README.md) and the audit in
 [docs/lab5-steering-log.md](docs/lab5-steering-log.md).
+
+## Tests (Lab 7)
+
+```bash
+npm test                 # or: npx jest --coverage
+```
+
+Jest + ts-jest + Supertest run against `mongodb-memory-server`, so no local
+MongoDB is needed (the first run downloads a `mongod` binary). Service unit
+tests live in `src/services/__tests__/`, HTTP integration and seeded fuzz tests
+in `src/routes/__tests__/`, and the harness in `src/test/`. `--coverage`
+fails below 80% statements, branches, functions, or lines across
+`src/services/` and `src/controllers/`. See
+[docs/lab7-steering-log.md](docs/lab7-steering-log.md).
 
 ## Architecture
 
