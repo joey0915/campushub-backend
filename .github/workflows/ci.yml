@@ -58,7 +58,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-      models: read
     env:
       BROKEN_BRANCH: ${{ github.head_ref || github.ref_name }}
       FIX_BRANCH: fix/auto-heal-${{ github.run_id }}
@@ -104,20 +103,40 @@ jobs:
           npx ts-node src/scripts/auto-heal/build-prompt.ts
           "$WORK_DIR/test-results.log" "$WORK_DIR/diff.patch" "$WORK_DIR/prompt.md"
 
-      - name: Ask the AI agent for a patch
-        id: agent
-        uses: actions/ai-inference@v2.1.1
-        with:
-          model: openai/gpt-4.1
-          system-prompt-file: .github/prompts/auto-heal.system.md
-          prompt-file: ${{ runner.temp }}/auto-heal/prompt.md
-          max-tokens: 4000
-          temperature: 0
+      # GitHub Models no longer serves completions, so the agent is Claude via the
+      # Anthropic Messages API. The key is a repository secret, never logged.
+      - name: Ask the AI agent (Claude) for a patch
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "::error::Repository secret ANTHROPIC_API_KEY is not set"; exit 1
+          fi
+          jq -n \
+            --rawfile system .github/prompts/auto-heal.system.md \
+            --rawfile prompt "$WORK_DIR/prompt.md" \
+            '{model: "claude-sonnet-5-5", max_tokens: 16000, fallbacks: "default",
+              system: $system, messages: [{role: "user", content: $prompt}]}' \
+            > "$WORK_DIR/request.json"
+          if ! curl -sS --fail-with-body --retry 3 --max-time 600 \
+            https://api.anthropic.com/v1/messages \
+            -H "content-type: application/json" \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2026-10-21" \
+            -H "anthropic-beta: server-side-fallback-2026-07-01" \
+            --data-binary @"$WORK_DIR/request.json" > "$WORK_DIR/response.json"; then
+            cat "$WORK_DIR/response.json"; exit 1
+          fi
+          stop_reason=$(jq -r '.stop_reason' "$WORK_DIR/response.json")
+          echo "Served by $(jq -r '.model' "$WORK_DIR/response.json"); stop_reason=$stop_reason"
+          if [ "$stop_reason" != "end_turn" ]; then
+            echo "::error::Agent stopped with $stop_reason"; exit 1
+          fi
+          jq -r '.content[] | select(.type == "text") | .text' "$WORK_DIR/response.json" \
+            > "$WORK_DIR/response.txt"
 
       - name: Apply the agent's patch
-        env:
-          RESPONSE_FILE: ${{ steps.agent.outputs.response-file }}
-        run: npx ts-node src/scripts/auto-heal/apply-patch.ts "$RESPONSE_FILE" "$WORK_DIR/summary.md"
+        run: npx ts-node src/scripts/auto-heal/apply-patch.ts "$WORK_DIR/response.txt" "$WORK_DIR/summary.md"
 
       - name: Verify the patch (lint + full Jest suite)
         run: |
