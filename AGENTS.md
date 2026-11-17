@@ -336,6 +336,13 @@ client/src/
   "unreachable" alert rather than a hanging spinner.
 - **Never report success you have not observed.** If a command fails, show the
   failure.
+- CI (`.github/workflows/ci.yml`, Lab 8) runs `npm run lint` and `npm test` on
+  every push and pull request to `main`. When the Jest step fails, its
+  `auto-fix` job gives a GitHub Models LLM the log, the diff, and the non-test
+  `src/` files involved (`src/scripts/auto-heal/`), re-runs lint and the suite
+  on its patch, and opens a `fix/auto-heal-<run_id>` PR against the broken
+  branch. Such a PR is merged only after a human audit, recorded in its
+  description, confirms it fixed source code rather than a test assertion.
 
 ---
 
