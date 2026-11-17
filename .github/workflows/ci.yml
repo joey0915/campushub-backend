@@ -62,8 +62,11 @@ jobs:
     env:
       BROKEN_BRANCH: ${{ github.head_ref || github.ref_name }}
       FIX_BRANCH: fix/auto-heal-${{ github.run_id }}
-      WORK_DIR: ${{ runner.temp }}/auto-heal
     steps:
+      # The runner context only exists inside steps, so WORK_DIR is exported from one.
+      - name: Prepare work directory
+        run: echo "WORK_DIR=$RUNNER_TEMP/auto-heal" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v7
         with:
           ref: ${{ github.head_ref || github.ref_name }}
