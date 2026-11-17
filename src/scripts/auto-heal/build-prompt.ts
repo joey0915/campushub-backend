@@ -10,8 +10,8 @@ import { isEditableSource } from './editable-source';
  * Usage: ts-node src/scripts/auto-heal/build-prompt.ts <test-results.log> <diff.patch> <out.md>
  */
 
-// GitHub Models caps a request at roughly 8k input tokens; these budgets keep
-// the whole prompt (system + user) under that.
+// Budgets keep the prompt on the failure: the report's head, the change, and
+// the files it implicates, not every passing test or unrelated module.
 const LOG_BUDGET = 9_000;
 const DIFF_BUDGET = 4_000;
 const SOURCE_BUDGET = 14_000;
