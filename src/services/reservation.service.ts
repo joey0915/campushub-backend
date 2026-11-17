@@ -156,8 +156,7 @@ async function tryBookSlot(
     tenantId,
     resourceId,
     status: { $in: ACTIVE_RESERVATION_STATUSES },
-    startTime: { $lt: endTime },
-    endTime: { $gt: startTime },
+    $or: [{ startTime: { $gte: endTime } }, { endTime: { $lte: startTime } }],
   }).exec();
   if (overlap !== null) {
     throw new ConflictError('Resource is already reserved for this time slot.', 'DOUBLE_BOOKING');
