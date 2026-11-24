@@ -1,7 +1,7 @@
 {
   "name": "campushub-backend",
   "version": "1.0.0",
-  "description": "CampusHub \u2014 multi-tenant campus resource management system (backend REST API)",
+  "description": "CampusHub — multi-tenant campus resource management system (backend REST API)",
   "main": "dist/src/server.js",
   "type": "commonjs",
   "engines": {
@@ -12,14 +12,15 @@
     "build": "tsc --project tsconfig.build.json",
     "start": "node dist/src/server.js",
     "seed": "ts-node src/scripts/seed.ts",
-    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.json && tsc --project e2e/tsconfig.json",
     "test": "jest",
     "test:coverage": "jest --coverage",
-    "lint": "eslint src shared",
-    "lint:fix": "eslint src shared --fix",
+    "lint": "eslint src shared e2e playwright.config.ts",
+    "lint:fix": "eslint src shared e2e playwright.config.ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "verify": "npm run typecheck && npm run lint && npm run format:check"
+    "verify": "npm run typecheck && npm run lint && npm run format:check",
+    "test:e2e": "playwright test"
   },
   "keywords": [
     "campushub",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
+    "@playwright/test": "^1.65.1",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.2",

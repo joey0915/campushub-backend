@@ -5,15 +5,21 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'node_modules/**', 'coverage/**'],
+    ignores: [
+      'dist/**',
+      'node_modules/**',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**',
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
-    files: ['src/**/*.ts', 'shared/**/*.ts'],
+    files: ['src/**/*.ts', 'shared/**/*.ts', 'e2e/**/*.ts', 'playwright.config.ts'],
     languageOptions: {
       parserOptions: {
-        project: ['./tsconfig.json'],
+        project: ['./tsconfig.json', './e2e/tsconfig.json'],
         tsconfigRootDir: import.meta.dirname,
       },
     },

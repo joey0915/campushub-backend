@@ -23,3 +23,8 @@ logs/
 docs/lab*-steering-log.md
 docs/diagrams/
 client/public/
+
+# Playwright output
+test-results/
+playwright-report/
+blob-report/

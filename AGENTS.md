@@ -19,6 +19,8 @@ holds two packages and the contract types they share:
 - **`client/`** — the React single-page client that consumes it (§3a). It has
   its own `package.json`; no UI code or UI dependency ever enters `src/` or the
   root `package.json`.
+- **`e2e/`** — the Playwright suite (§3, Tests) driving both packages through a
+  browser, configured by the root `playwright.config.ts`.
 - **`shared/contract.ts`** — the one declaration of the `docs/openapi.yaml`
   schemas, imported by both sides (§3). Dependency-free: no imports at all.
 
@@ -59,6 +61,12 @@ Additionally, as root `devDependencies` only (approved for Lab 7):
 | Test runner        | `jest`, `ts-jest`, `@types/jest`     |
 | HTTP integration   | `supertest`, `@types/supertest`      |
 | In-memory database | `mongodb-memory-server` (tests only) |
+
+Additionally, as a root `devDependency` only (approved for Lab 9):
+
+| Purpose        | Package                                                    |
+| -------------- | ---------------------------------------------------------- |
+| E2E / browsers | `@playwright/test` (browsers via `npx playwright install`) |
 
 Styling is CSS Modules, built into Vite — no Tailwind, CSS-in-JS, or component
 library without approval.
@@ -179,6 +187,14 @@ src/
   real server. `tsconfig.build.json` keeps tests out of `dist/`.
 - Seed data through `src/test/fixtures.ts` and narrow Supertest's `any` body
   with `src/test/contract-guards.ts`; the §4 rules apply to tests unchanged.
+- End-to-end acceptance tests live in `e2e/`: Gherkin criteria in
+  `e2e/scenarios/*.feature`, each executed by an `e2e/<feature>.spec.ts` with
+  one `test.step` per Given/When/Then line. Locate elements by role, label or
+  visible text only — never CSS or XPath; a missing accessible name is fixed in
+  the component. `playwright.config.ts` boots the API on an in-memory MongoDB
+  (`e2e/support/api-server.ts`, after `npm run seed`) and the client on
+  dedicated ports; tests arrange state through the public API, never the
+  database.
 - A known, not-yet-fixed defect is pinned with `it.failing` and a comment
   naming the gap, so the suite turns red when it is fixed — never deleted or
   skipped.
@@ -291,8 +307,8 @@ client/src/
 
 - Read environment variables **only** through the typed config module
   (`src/config/env.ts`). `process.env` is not referenced anywhere else, except
-  that the Jest harness (`src/test/global-setup.ts`) writes `MONGODB_URI`
-  before `env.ts` loads.
+  that the Jest harness (`src/test/global-setup.ts`) and the E2E launcher
+  (`e2e/support/api-server.ts`) write `MONGODB_URI` before `env.ts` loads.
 - Never hard-code secrets, connection strings, tokens, or ports in source.
 - Never log secrets, tokens, or full request bodies.
 - Every tenant-scoped query filters on `tenantId`. Never trust a `tenantId`
@@ -325,6 +341,8 @@ client/src/
   - `npm run build` — must succeed.
   - `npx jest --coverage` — every suite passes and the 80% threshold holds.
   - `npx @redocly/cli lint docs/openapi.yaml` — must pass with zero errors.
+  - `npm run test:e2e` — every Playwright scenario passes in every browser
+    project (it starts its own servers; nothing needs to be running).
 - If you changed `client/`, also run from `client/`: `npm run typecheck`,
   `npm run lint`, and `npm run build` — all must pass with zero errors.
 - If you changed a route, also verify it with `curl` against a running
