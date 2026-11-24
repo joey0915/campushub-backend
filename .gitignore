@@ -33,3 +33,8 @@ Thumbs.db
 # Tooling caches
 .eslintcache
 .npm/
+
+# Playwright output
+test-results/
+playwright-report/
+blob-report/
